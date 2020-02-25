@@ -171,9 +171,9 @@ func updateMenu(url string, postData []byte, bgnde time.Time, name string) (menu
 		}
 	}
 
-	dateString := bgnde.Format("2006년 01월 02일")
-
 	for i := 0; i < 5; i++ {
+		dateString := bgnde.Add(time.Duration(i) * 24 * time.Hour).Format("2006년 01월 02일")
+
 		menu.morning[i] = strings.ReplaceAll(menu.morning[i], "&amp;amp;", "&")
 		menu.lunch[i] = strings.ReplaceAll(menu.lunch[i], "&amp;amp;", "&")
 		menu.dinner[i] = strings.ReplaceAll(menu.dinner[i], "&amp;amp;", "&")
