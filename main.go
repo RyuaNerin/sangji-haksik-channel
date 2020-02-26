@@ -19,8 +19,8 @@ func main() {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
-	getMenu()
-	go startWebhook()
+	go MenuUpdate()
+	startWebhook()
 
 	<-sig
 

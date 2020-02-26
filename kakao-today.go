@@ -1,35 +1,22 @@
 package main
 
 import (
-	"net/http"
+	skill "github.com/RyuaNerin/go-kakaoskill/v2"
 )
 
-func handleToday(ctx KakaoContext) {
-	keyRaw, ok := ctx.rd.Action.Params["key"]
-	if !ok {
-		ctx.gin.Status(http.StatusBadRequest)
-		return
-	}
+func handleToday(ctx *skill.Context) {
+	key := ctx.Payload.Action.Params["key"].(string)
 
-	key, ok := keyRaw.(string)
-	if !ok {
-		ctx.gin.Status(http.StatusBadRequest)
-		return
-	}
-
-	menu, index, ok := getMenu()
-	if !ok {
-		ctx.WriteSimpleText("죄송합니다.\n식단표를 불러오지 못하였습니다.")
-	} else {
-		switch key {
-		case "0": // 민주관 학생
-			ctx.WriteSimpleText(menu.MinjuStudent.dailyMenu[index])
-		case "1": // 민주관 교직
-			ctx.WriteSimpleText(menu.MinjuProfessor.dailyMenu[index])
-		case "2": // 창조관 학생
-			ctx.WriteSimpleText(menu.ChangjoStudent.dailyMenu[index])
-		case "3": // 창조관 교직
-			ctx.WriteSimpleText(menu.ChangjoProfessor.dailyMenu[index])
-		}
+	switch key {
+	case "0": // 민주관 학생
+		ctx.WriteSimpleText(MinjuStudent.GetMenu())
+	case "1": // 민주관 교직
+		ctx.WriteSimpleText(MinjuProfessor.GetMenu())
+	case "2": // 창조관 학생
+		ctx.WriteSimpleText(ChangjoStudent.GetMenu())
+	case "3": // 창조관 교직
+		ctx.WriteSimpleText(ChangjoProfessor.GetMenu())
+	default:
+		ctx.WriteSimpleText("잘못된 요청입니다.")
 	}
 }
