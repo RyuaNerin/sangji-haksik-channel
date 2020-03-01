@@ -1,64 +1,56 @@
-package main
+package srvmenu
 
 import (
 	"bytes"
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"sangjihaksik/share"
+
 	"github.com/getsentry/sentry-go"
 	jsoniter "github.com/json-iterator/go"
 )
 
-const UpdatePeriod = time.Minute * 5
-
-type MenuData struct {
+type data struct {
 	name    string
 	pageUrl string
 
 	lock       sync.RWMutex
 	menu       map[int]string // 일 : 식단
-	menuBuffer [5]*strings.Builder
+	menuBuffer [5]bytes.Buffer
 
-	updating        int32
+	// 중복 업데이트 방지
+	updating int32
+
+	//
 	jsonItemCount   int
 	jsonItemModDate [3]string
 }
 
 var (
-	bytesPool = sync.Pool{
-		New: func() interface{} {
-			return new(strings.Builder)
-		},
-	}
-
-	weekdayKr = []string{"월요일", "화요일", "수요일", "목요일", "일요일"}
+	minjuStudent     = newData("https://www.sangji.ac.kr/prog/carteGuidance/kor/sub07_10_01/DS/getCalendar.do", "민주관 학생식당")
+	minjuProfessor   = newData("https://www.sangji.ac.kr/prog/carteGuidance/kor/sub07_10_02/DP/getCalendar.do", "민주관 교직원식당")
+	changjoStudent   = newData("https://www.sangji.ac.kr/prog/carteGuidance/kor/sub07_10_03/CS/getCalendar.do", "창조관 학생식당")
+	changjoProfessor = newData("https://www.sangji.ac.kr/prog/carteGuidance/kor/sub07_10_04/CP/getCalendar.do", "창조관 교직원식당")
 )
 
-var (
-	MinjuStudent     = NewMenuData("https://www.sangji.ac.kr/prog/carteGuidance/kor/sub07_10_01/DS/getCalendar.do", "민주관 학생식당")
-	MinjuProfessor   = NewMenuData("https://www.sangji.ac.kr/prog/carteGuidance/kor/sub07_10_02/DP/getCalendar.do", "민주관 교직원식당")
-	ChangjoStudent   = NewMenuData("https://www.sangji.ac.kr/prog/carteGuidance/kor/sub07_10_03/CS/getCalendar.do", "창조관 학생식당")
-	ChangjoProfessor = NewMenuData("https://www.sangji.ac.kr/prog/carteGuidance/kor/sub07_10_04/CP/getCalendar.do", "창조관 교직원식당")
-)
-
-func NewMenuData(url string, name string) MenuData {
-	return MenuData{
+func newData(url string, name string) data {
+	return data{
 		name:          name,
 		pageUrl:       url,
-		menu:          map[int]string{},
+		menu:          make(map[int]string, 5),
 		jsonItemCount: -1,
 	}
 }
 
-func MenuUpdate() {
-	ticker := time.NewTicker(UpdatePeriod)
+func updateFunc() {
+	ticker := time.NewTicker(share.Config.UpdatePeriodMenu)
 
 	for {
 		bgnde := time.Now()
@@ -76,17 +68,17 @@ func MenuUpdate() {
 		if !skip {
 			postData := []byte(bgnde.Format("bgnde=2006-01-02"))
 
-			go MinjuStudent.update(bgnde, postData)
-			go MinjuProfessor.update(bgnde, postData)
-			go ChangjoStudent.update(bgnde, postData)
-			go ChangjoProfessor.update(bgnde, postData)
+			go minjuStudent.update(bgnde, postData)
+			go minjuProfessor.update(bgnde, postData)
+			go changjoStudent.update(bgnde, postData)
+			go changjoProfessor.update(bgnde, postData)
 		}
 
 		<-ticker.C
 	}
 }
 
-func (m *MenuData) GetMenu() string {
+func (m *data) getMenu() string {
 	now := time.Now()
 
 	weekday := now.Weekday()
@@ -106,15 +98,13 @@ func (m *MenuData) GetMenu() string {
 }
 
 // with Panic
-func (m *MenuData) update(bgnde time.Time, postData []byte) {
-	if !atomic.CompareAndSwapInt32(&m.updating, 0, 1) {
+func (d *data) update(bgnde time.Time, postData []byte) {
+	if !atomic.CompareAndSwapInt32(&d.updating, 0, 1) {
 		return
 	}
-	defer atomic.StoreInt32(&m.updating, 0)
+	defer atomic.StoreInt32(&d.updating, 0)
 
-	log.Printf("Update : %s\n", m.pageUrl)
-
-	req, _ := http.NewRequest("POST", m.pageUrl, bytes.NewReader(postData))
+	req, _ := http.NewRequest("POST", d.pageUrl, bytes.NewReader(postData))
 	req.Header = http.Header{
 		"User-Agent":   []string{"sangji-haksik-channel"},
 		"Content-Type": []string{"application/x-www-form-urlencoded; charset=utf-8"},
@@ -154,7 +144,7 @@ func (m *MenuData) update(bgnde time.Time, postData []byte) {
 		},
 		3)
 
-	modified := len(responseJson.Item) != m.jsonItemCount
+	modified := len(responseJson.Item) != d.jsonItemCount
 
 	var jsonItemModDate [3]string
 
@@ -175,7 +165,7 @@ func (m *MenuData) update(bgnde time.Time, postData []byte) {
 		menu[index].time = item.Time
 		menu[index].menu = [5]string{item.WeekDay0, item.WeekDay1, item.WeekDay2, item.WeekDay3, item.WeekDay4}
 
-		modified = modified || m.jsonItemModDate[index] != item.ModDate
+		modified = modified || d.jsonItemModDate[index] != item.ModDate
 		jsonItemModDate[index] = item.ModDate
 	}
 
@@ -183,15 +173,15 @@ func (m *MenuData) update(bgnde time.Time, postData []byte) {
 		return
 	}
 
-	m.lock.Lock()
-	defer m.lock.Unlock()
+	d.lock.Lock()
+	defer d.lock.Unlock()
 
-	m.jsonItemCount = len(responseJson.Item)
-	m.jsonItemModDate = jsonItemModDate
+	d.jsonItemCount = len(responseJson.Item)
+	d.jsonItemModDate = jsonItemModDate
 
 	// clear
-	for key := range m.menu {
-		delete(m.menu, key)
+	for key := range d.menu {
+		delete(d.menu, key)
 	}
 	for i := 0; i < 5; i++ {
 		menu[0].menu[i] = strings.ReplaceAll(menu[0].menu[i], "&amp;amp;", "&")
@@ -199,39 +189,31 @@ func (m *MenuData) update(bgnde time.Time, postData []byte) {
 		menu[2].menu[i] = strings.ReplaceAll(menu[2].menu[i], "&amp;amp;", "&")
 
 		/**
-		2020년 02월 25일 토요일
+		2020년 2월 2일 토요일
 		민주관 학생식당
 
 		----------------------
 		아침 (09:00 ~ 10:00)
-
 		북어해장국
 		공기밥
 		깍두기
-
 		----------------------
 		점심 (11:00 ~ 14:00)
-
-		일품:돈가스카레덮밥/쥬시쿨
-		백반:돈육바베큐볶음
-		미역국
-		계란찜
-		파래김자반
-
+		메뉴없음
 		----------------------
 		저녁 (17:00 ~ 18:30)
-
 		일품:돈가스카레덮밥/쥬시쿨
 		백반:돈육바베큐볶음
 		미역국
 		계란찜
 		파래김자반
 		*/
-		sb := bytesPool.Get().(*strings.Builder)
+		sb := &d.menuBuffer[i]
+		sb.Reset()
 
 		dt := bgnde.Add(time.Duration(i) * 24 * time.Hour)
-		fmt.Fprintln(sb, dt.Format("2006년 01월 02일"), weekdayKr[dt.Weekday()-1])
-		fmt.Fprintln(sb, m.name)
+		fmt.Fprintln(sb, share.TimeFormatKr.Replace(dt.Format("2006년 1월 2일 Mon")))
+		fmt.Fprintln(sb, d.name)
 		fmt.Fprintln(sb)
 
 		// 메뉴 없음
@@ -272,11 +254,6 @@ func (m *MenuData) update(bgnde time.Time, postData []byte) {
 			}
 		}
 
-		if m.menuBuffer[i] != nil {
-			m.menuBuffer[i].Reset()
-			bytesPool.Put(m.menuBuffer[i])
-		}
-		m.menu[dt.Day()] = sb.String()
-		m.menuBuffer[i] = sb
+		d.menu[dt.Day()] = share.ToString(sb.Bytes())
 	}
 }

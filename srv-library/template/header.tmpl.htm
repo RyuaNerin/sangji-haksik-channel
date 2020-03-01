@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="ko">
+    <head>
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta http-equiv="content-type" content="text/html; charset=utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        
+        <title>좌석 현황 : {{ .Name }}</title>
+
+        <meta name="format-detection" content="telephone=no,address=no, email=no">
+
+        <link type="text/css" rel="stylesheet" href="static/style.css">
+    </head>
+
+    <body>
+        <span>
+            {{ .UpdatedAt }}
+        </span>
+
+        <div id="explanatory_notes_wrap" class="explanatory_notes_wrap">
+            <div id="explanatory_type">
+                <span class="explanatory_type_1"></span> 이용가능 <span class="explanatory_type_2"></span> 이용중 <span class="explanatory_type_3"></span> 자유
+            </div>
+        </div>
