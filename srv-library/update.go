@@ -66,8 +66,8 @@ type data struct {
 var (
 	seat1    = newDataSeat("sloc_code=SJU&group_code=0&reading_code=04", "0", "room1.tmpl.htm", "제 1 열람실 (3층)")
 	seat2    = newDataSeat("sloc_code=SJU&group_code=0&reading_code=05", "1", "room2.tmpl.htm", "제 2 열람실 (5층)")
-	seat3a   = newDataSeat("sloc_code=SJU&group_code=0&reading_code=03", "2", "room3a.tmpl.htm", "제 3 열람실 A (5층)") // TODO
-	seat3b   = newDataSeat("sloc_code=SJU&group_code=0&reading_code=07", "3", "room3b.tmpl.htm", "제 3 열람실 B (5층)") // TODO
+	seat3a   = newDataSeat("sloc_code=SJU&group_code=0&reading_code=01", "2", "room3a.tmpl.htm", "제 3 열람실 A (5층)")
+	seat3b   = newDataSeat("sloc_code=SJU&group_code=0&reading_code=07", "3", "room3b.tmpl.htm", "제 3 열람실 B (5층)")
 	seatRoom = newDataSeat("sloc_code=SJU&group_code=0&reading_code=06", "4", "roomgroup.tmpl.htm", "그룹스터디실(2층)")
 )
 
