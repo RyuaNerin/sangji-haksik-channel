@@ -133,6 +133,7 @@ func (d *data) update(bgnde time.Time, postData []byte) {
 
 	err = jsoniter.NewDecoder(res.Body).Decode(&responseJson)
 	if err != nil && err != io.EOF {
+		sentry.CaptureException(err)
 		return
 	}
 
