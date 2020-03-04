@@ -12,6 +12,7 @@ import (
 	_ "sangjihaksik/srv-bus"
 	_ "sangjihaksik/srv-library"
 	_ "sangjihaksik/srv-menu"
+	_ "sangjihaksik/static"
 )
 
 func main() {
