@@ -2,11 +2,9 @@ package srvlibrary
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"net/http/cookiejar"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -22,22 +20,6 @@ import (
 )
 
 var (
-	clientJar, _ = cookiejar.New(nil)
-	client       = http.Client{
-		Transport: share.FiddlerTransport(new(http.Transport)),
-		Jar:       clientJar,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
-
-	loginPostData = url.Values{
-		"siteCode":  []string{"kor"},
-		"returnUrl": []string{""},
-		"id":        []string{share.Config.Id},
-		"password":  []string{share.Config.Pw},
-	}.Encode()
-
 	regExctractSeatNumber = regexp.MustCompile(`reading_select_seat\('[^']+','(\d+)'`)
 	regExtractSeatUsing   = regexp.MustCompile(`var\s+tbl_seat_id\s+=\s+'\d+\D(\d+)'`)
 )
@@ -116,7 +98,7 @@ func updateTotal(now time.Time) bool {
 		"User-Agent": []string{share.UserAgent},
 	}
 
-	res, err := client.Do(req)
+	res, err := share.Client.Do(req)
 	if err != nil {
 		sentry.CaptureException(err)
 		return false
@@ -209,7 +191,7 @@ func updateTotalIsLogined() bool {
 		"User-Agent": []string{share.UserAgent},
 	}
 
-	res, err := client.Do(req)
+	res, err := share.Client.Do(req)
 	if err != nil {
 		sentry.CaptureException(err)
 		return false
@@ -220,53 +202,18 @@ func updateTotalIsLogined() bool {
 }
 
 func updateTotalLogin() bool {
-	// VisitPage
-	req, _ := http.NewRequest("GET", "https://www.sangji.ac.kr/prog/login/actionSangjiLogin.do", nil)
-	req.Header = http.Header{
-		"User-Agent": []string{share.UserAgent},
-	}
-	res, err := client.Do(req)
-	if err != nil {
-		sentry.CaptureException(err)
-		return false
-	}
-	res.Body.Close()
-
-	// Login
-	// https://www.sangji.ac.kr/prog/login/actionSangjiLogin.do
-	// siteCode=kor&returnUrl=&id=********&password=*********
-	req, _ = http.NewRequest("POST", "https://www.sangji.ac.kr/prog/login/actionSangjiLogin.do", strings.NewReader(loginPostData))
-	req.Header = http.Header{
-		"User-Agent":   []string{share.UserAgent},
-		"Content-Type": []string{"application/x-www-form-urlencoded"},
-	}
-
-	res, err = client.Do(req)
-	if err != nil {
-		sentry.CaptureException(err)
-		return false
-	}
-	res.Body.Close()
-
-	loc, err := res.Location()
-	if err != nil {
-		sentry.CaptureException(err)
-		return false
-	}
-
-	if strings.Contains(loc.Path, "login.do") {
-		sentry.CaptureException(errors.New(loc.Query().Get("message")))
+	if !share.Login() {
 		return false
 	}
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Visit page
-	req, _ = http.NewRequest("GET", "https://library.sangji.ac.kr/", nil)
+	req, _ := http.NewRequest("GET", "https://library.sangji.ac.kr/", nil)
 	req.Header = http.Header{
 		"User-Agent": []string{share.UserAgent},
 	}
 
-	res, err = client.Do(req)
+	res, err := share.Client.Do(req)
 	if err != nil {
 		sentry.CaptureException(err)
 		return false
@@ -315,7 +262,7 @@ func updateTotalLogin() bool {
 		"Referer":      []string{"https://library.sangji.ac.kr/"},
 	}
 
-	res, err = client.Do(req)
+	res, err = share.Client.Do(req)
 	if err != nil {
 		sentry.CaptureException(err)
 		return false
@@ -347,7 +294,7 @@ func (m *data) update(bgnde time.Time) {
 		"Referer":      []string{"https://library.sangji.ac.kr/reading_seat_map.mir"},
 	}
 
-	res, err := client.Do(req)
+	res, err := share.Client.Do(req)
 	if err != nil {
 		sentry.CaptureException(err)
 		return
