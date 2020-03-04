@@ -5,6 +5,7 @@
 - 이 레포지토리는 [GNU General Public License version 3.0 (GPLv3)](LICENSE.txt) 하에 배포됩니다.
 
 ## 참조 사항
+
 - 이 서비스는 [**golang 용 카카오 i 오픈빌더 API 라이브러리** `go-kakaoskill`](https://github.com/RyuaNerin/go-kakaoskill) 로 제작되었습니다.
 
 ## 지원 기능
