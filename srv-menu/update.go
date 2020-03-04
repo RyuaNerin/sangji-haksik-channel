@@ -57,7 +57,7 @@ func updateFunc() {
 
 		skip := false
 		switch bgnde.Weekday() {
-		case time.Thursday: // 토요일 업데이트 안함
+		case time.Saturday: // 토요일 업데이트 안함
 			skip = true
 		case time.Sunday: // 내일 (월요일) 꺼 미리 업데이트
 			bgnde.Add(24 * time.Hour)
