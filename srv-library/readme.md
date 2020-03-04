@@ -28,11 +28,11 @@
     |`<span class="seat_type_[^"]+"( [^>]+)?>((?!</span>).\|\n)*</span>`||
     |`<script [^>]+>((?!</script>).\|\n)*</script>`||
     |`cursor:pointer;`||
-8. 빈 라인 제거
+7. 빈 라인 제거
     |Regex|Replace|
     |-|-|
     |`^[ \t]*\n`||
-7. Template 넣기
+8. Template 넣기
     |Regex|Replace|
     |-|-|
     |`<span class="seat_num">0*(\d+)</span>`|`{{ template "seat.tmpl.htm" index .Seat $1 }}`|
