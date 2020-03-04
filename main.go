@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"sangjihaksik/share"
+	_ "sangjihaksik/srv-bus"
 	_ "sangjihaksik/srv-library"
 	_ "sangjihaksik/srv-menu"
 )
