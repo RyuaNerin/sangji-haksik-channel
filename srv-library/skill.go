@@ -1,7 +1,56 @@
 package srvlibrary
 
 import (
+	"net/http"
+
 	skill "github.com/RyuaNerin/go-kakaoskill/v2"
+	jsoniter "github.com/json-iterator/go"
+)
+
+var (
+	baseReplies = []skill.QuickReply{
+		skill.QuickReply{
+			Label:       "1",
+			Action:      "message",
+			MessageText: "1",
+		},
+		skill.QuickReply{
+			Label:       "2",
+			Action:      "message",
+			MessageText: "2",
+		},
+		skill.QuickReply{
+			Label:       "3a",
+			Action:      "message",
+			MessageText: "3a",
+		},
+		skill.QuickReply{
+			Label:       "3b",
+			Action:      "message",
+			MessageText: "3b",
+		},
+		skill.QuickReply{
+			Label:       "그룹",
+			Action:      "message",
+			MessageText: "g",
+		},
+	}
+
+	responseError, _ = jsoniter.Marshal(
+		&skill.SkillResponse{
+			Version: "2.0",
+			Template: skill.SkillTemplate{
+				Outputs: []skill.Component{
+					skill.Component{
+						SimpleText: &skill.SimpleText{
+							Text: "열람실 정보를 얻어오지 못하였습니다.\n\n잠시 후 다시 시도해주세요.",
+						},
+					},
+				},
+				QuickReplies: baseReplies,
+			},
+		},
+	)
 )
 
 func skillHandler(ctx *skill.Context) {
@@ -27,69 +76,13 @@ func skillHandler(ctx *skill.Context) {
 	}
 
 	if d == nil {
-		ctx.WriteSimpleText("잘못된 요청입니다.")
+		ctx.ResponseWriter.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 
-	if len(d.skillText) == 0 {
-		ctx.WriteSimpleText("열람실 정보를 얻어오지 못하였습니다.\n\n잠시 후 다시 시도해주세요.")
-	} else {
-		// https://i.kakao.com/docs/skill-response-format#basiccard
-		res := skill.SkillResponse{
-			Version: "2.0",
-			Template: skill.SkillTemplate{
-				Outputs: []skill.Component{
-					skill.Component{
-						BasicCard: &skill.BasicCard{
-							Title:       d.name,
-							Description: d.skillText,
-						},
-					},
-				},
-				QuickReplies: []skill.QuickReply{
-					skill.QuickReply{
-						Label:       "1",
-						Action:      "message",
-						MessageText: "1",
-					},
-					skill.QuickReply{
-						Label:       "2",
-						Action:      "message",
-						MessageText: "2",
-					},
-					skill.QuickReply{
-						Label:       "3a",
-						Action:      "message",
-						MessageText: "3a",
-					},
-					skill.QuickReply{
-						Label:       "3b",
-						Action:      "message",
-						MessageText: "3b",
-					},
-					skill.QuickReply{
-						Label:       "그룹",
-						Action:      "message",
-						MessageText: "g",
-					},
-				},
-			},
-		}
-
-		if d.enabled {
-			// 버튼 추가
-			res.Template.Outputs[0].BasicCard.Buttons = []skill.Button{
-				skill.Button{
-					Label:      "좌석 보기",
-					Action:     "webLink",
-					WebLinkUrl: d.skillHtmlLink,
-				},
-			}
-		}
-
-		ctx.WriteResponse(&res)
-	}
+	ctx.ResponseWriter.WriteHeader(http.StatusOK)
+	ctx.ResponseWriter.Write(d.skillResponse)
 }

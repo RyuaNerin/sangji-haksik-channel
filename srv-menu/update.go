@@ -13,6 +13,7 @@ import (
 
 	"sangjihaksik/share"
 
+	skill "github.com/RyuaNerin/go-kakaoskill/v2"
 	"github.com/getsentry/sentry-go"
 	jsoniter "github.com/json-iterator/go"
 )
@@ -21,16 +22,25 @@ type data struct {
 	name    string
 	pageUrl string
 
-	lock       sync.RWMutex
-	menu       map[int]string // 일 : 식단
-	menuBuffer [5]bytes.Buffer
+	lock sync.RWMutex
+	menu [5]dataMenu // 월 ~ 금
+
+	menuStringBuffer bytes.Buffer // 일일 시간표 텍스트 생성에 사용될 버퍼
 
 	// 중복 업데이트 방지
 	updating int32
 
-	//
+	// 메뉴판 업데이트 확인용 변수
 	jsonItemCount   int
 	jsonItemModDate [3]string
+
+	// 메모리 재할당 방지용 변수
+	skillResponse skill.SkillResponse
+}
+type dataMenu struct {
+	day                 int          // 일
+	skillResponse       []byte       // 스킬 응답 사전 생성
+	skillResponseBuffer bytes.Buffer // skillResponse 용 버퍼
 }
 
 var (
@@ -44,8 +54,18 @@ func newData(url string, name string) data {
 	return data{
 		name:          name,
 		pageUrl:       url,
-		menu:          make(map[int]string, 5),
 		jsonItemCount: -1,
+		skillResponse: skill.SkillResponse{
+			Version: "2.0",
+			Template: skill.SkillTemplate{
+				Outputs: []skill.Component{
+					skill.Component{
+						SimpleText: &skill.SimpleText{},
+					},
+				},
+				QuickReplies: baseReplies,
+			},
+		},
 	}
 }
 
@@ -78,26 +98,25 @@ func updateFunc() {
 	}
 }
 
-func (m *data) getMenu() string {
+func (m *data) getSkillResponseBytes() []byte {
 	now := time.Now()
 
 	weekday := now.Weekday()
 	if weekday == time.Sunday || weekday == time.Saturday {
-		return "주말메뉴는 제공되지 않습니다."
+		return responseNoWeekend
 	}
 
 	m.lock.RLock()
-	menu, ok := m.menu[now.Day()]
-	m.lock.RUnlock()
+	defer m.lock.RUnlock()
 
-	if !ok {
-		return "식단표 정보를 얻어오지 못하였습니다.\n\n잠시 후 다시 시도해주세요."
+	md := m.menu[int(weekday-time.Monday)]
+	if md.day != now.Day() {
+		return responseError
 	}
 
-	return menu
+	return md.skillResponse
 }
 
-// with Panic
 func (d *data) update(bgnde time.Time, postData []byte) {
 	if !atomic.CompareAndSwapInt32(&d.updating, 0, 1) {
 		return
@@ -180,10 +199,8 @@ func (d *data) update(bgnde time.Time, postData []byte) {
 	d.jsonItemCount = len(responseJson.Item)
 	d.jsonItemModDate = jsonItemModDate
 
-	// clear
-	for key := range d.menu {
-		delete(d.menu, key)
-	}
+	sb := &d.menuStringBuffer
+
 	for i := 0; i < 5; i++ {
 		menu[0].menu[i] = strings.ReplaceAll(menu[0].menu[i], "&amp;amp;", "&")
 		menu[1].menu[i] = strings.ReplaceAll(menu[1].menu[i], "&amp;amp;", "&")
@@ -209,7 +226,6 @@ func (d *data) update(bgnde time.Time, postData []byte) {
 		계란찜
 		파래김자반
 		*/
-		sb := &d.menuBuffer[i]
 		sb.Reset()
 
 		dt := bgnde.Add(time.Duration(i) * 24 * time.Hour)
@@ -255,6 +271,18 @@ func (d *data) update(bgnde time.Time, postData []byte) {
 			}
 		}
 
-		d.menu[dt.Day()] = share.ToString(sb.Bytes())
+		d.menu[i].day = dt.Day()
+
+		d.skillResponse.Template.Outputs[0].SimpleText.Text = share.ToString(sb.Bytes())
+
+		d.menu[i].skillResponseBuffer.Reset()
+		err := jsoniter.NewEncoder(&d.menu[i].skillResponseBuffer).Encode(&d.skillResponse)
+		if err != nil {
+			d.menu[i].skillResponse = responseError
+			sentry.CaptureException(err)
+			continue
+		}
+
+		d.menu[i].skillResponse = d.menu[i].skillResponseBuffer.Bytes()
 	}
 }

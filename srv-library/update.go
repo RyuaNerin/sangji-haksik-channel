@@ -16,7 +16,9 @@ import (
 	"sangjihaksik/share"
 
 	"github.com/PuerkitoBio/goquery"
+	skill "github.com/RyuaNerin/go-kakaoskill/v2"
 	"github.com/getsentry/sentry-go"
+	jsoniter "github.com/json-iterator/go"
 )
 
 var (
@@ -25,24 +27,30 @@ var (
 )
 
 type data struct {
-	key              string
 	name             string
 	updatePostData   []byte
 	templateFileName string
 
-	lock             sync.RWMutex
-	enabled          bool         // false 일 때 : 운영시간 아님 혹은
-	skillHtmlLink    string       // 스킬 전송할 때 보낼 주소
-	skillText        string       // 사전 생성된 카카오톡 전용 문자열
-	skillTextBuilder bytes.Buffer // skillText 전용 버퍼
+	lock    sync.RWMutex
+	enabled bool // false 일 때 : 운영시간 아님 혹은
 
-	webViewbody   []byte       // 웹뷰 데이터
-	webViewBuffer bytes.Buffer // 웹뷰 버퍼
+	textBuffer          bytes.Buffer
+	skillResponse       []byte       // 스킬 응답 사전 생성
+	skillResponseBuffer bytes.Buffer // skillResponse 버퍼
+
+	webBody            []byte       // 웹뷰 데이터
+	webBodyBuffer      bytes.Buffer // 웹뷰 버퍼
+	webLastModified    string       // share.ToString(webViewETagBuf)
+	webLastModifiedBuf []byte
 
 	updateHtmlBuffer bytes.Buffer             // 업데이트할 떄 HTML 메모리에 읽을 때 사용할 버퍼
 	updateMapBuffer  map[int]templateDataSeat // 돌려쓰기
 
 	updating int32
+
+	// 메모리 재할당 방지용 변수
+	skillResponseWithoutButton skill.SkillResponse
+	skillResponseWithButton    skill.SkillResponse
 }
 
 var (
@@ -55,30 +63,72 @@ var (
 
 func newDataSeat(postData string, key string, templateName string, name string) data {
 	return data{
-		key:              key,
 		name:             name,
 		updatePostData:   []byte(postData),
 		templateFileName: templateName,
 
 		updateMapBuffer: make(map[int]templateDataSeat, 300),
+
+		skillResponseWithButton: skill.SkillResponse{
+			Version: "2.0",
+			Template: skill.SkillTemplate{
+				Outputs: []skill.Component{
+					skill.Component{
+						BasicCard: &skill.BasicCard{
+							Title: name,
+							Buttons: []skill.Button{
+								skill.Button{
+									Label:      "좌석 보기",
+									Action:     "webLink",
+									WebLinkUrl: fmt.Sprintf("%s%s?key=%s", share.ServerUri, pathWebView, key),
+								},
+							},
+						},
+					},
+				},
+				QuickReplies: baseReplies,
+			},
+		},
+		skillResponseWithoutButton: skill.SkillResponse{
+			Version: "2.0",
+			Template: skill.SkillTemplate{
+				Outputs: []skill.Component{
+					skill.Component{
+						BasicCard: &skill.BasicCard{
+							Title: name,
+						},
+					},
+				},
+				QuickReplies: baseReplies,
+			},
+		},
 	}
 }
 
 func updateFunc() {
-	ticker := time.NewTicker(share.Config.UpdatePeriodLibrary)
+	// 첫갱신 이후 단위 맞추기
+	var ticker *time.Ticker
 
+	firstRun := true
 	for {
 		now := time.Now()
 
 		if updateTotal(now) {
-			go seat1.update(now)
-			go seat2.update(now)
-			go seat3a.update(now)
-			go seat3b.update(now)
-			go seatRoom.update(now)
+			go seat1.update()
+			go seat2.update()
+			go seat3a.update()
+			go seat3b.update()
+			go seatRoom.update()
 		}
 
-		<-ticker.C
+		if firstRun {
+			firstRun = false
+
+			<-time.After(time.Until(time.Now().Truncate(share.Config.UpdatePeriodLibrary).Add(share.Config.UpdatePeriodLibrary)))
+			ticker = time.NewTicker(share.Config.UpdatePeriodLibrary)
+		} else {
+			<-ticker.C
+		}
 	}
 }
 
@@ -141,8 +191,6 @@ func updateTotal(now time.Time) bool {
 				return
 			}
 
-			d.skillHtmlLink = fmt.Sprintf("%s%s?key=%s&for-cache=%d", share.ServerUri, pathWebView, d.key, now.Unix())
-
 			/**
 			이용 가능 : 200 / 210
 
@@ -155,7 +203,7 @@ func updateTotal(now time.Time) bool {
 			오전 1시 0분 기준
 			*/
 
-			sb := &d.skillTextBuilder
+			sb := &d.textBuffer
 			sb.Reset()
 
 			// check disabled
@@ -178,7 +226,25 @@ func updateTotal(now time.Time) bool {
 			fmt.Fprintln(sb, share.TimeFormatKr.Replace(now.Format("2006년 1월 2일 Mon")))
 			fmt.Fprint(sb, share.TimeFormatKr.Replace(now.Format("pm 3시 4분 기준")))
 
-			d.skillText = share.ToString(sb.Bytes())
+			// Skill Response 생성
+
+			var res *skill.SkillResponse
+			if d.enabled {
+				res = &d.skillResponseWithButton
+			} else {
+				res = &d.skillResponseWithoutButton
+			}
+			res.Template.Outputs[0].BasicCard.Description = share.ToString(sb.Bytes())
+
+			d.skillResponseBuffer.Reset()
+			err := jsoniter.NewEncoder(&d.skillResponseBuffer).Encode(res)
+			if err != nil {
+				d.skillResponse = responseError
+				sentry.CaptureException(err)
+				return
+			}
+
+			d.skillResponse = d.skillResponseBuffer.Bytes()
 		},
 	)
 
@@ -272,7 +338,7 @@ func updateTotalLogin() bool {
 	return true
 }
 
-func (m *data) update(bgnde time.Time) {
+func (m *data) update() {
 	m.lock.RLock()
 	if !m.enabled {
 		m.lock.RUnlock()
@@ -346,4 +412,6 @@ func (m *data) update(bgnde time.Time) {
 	defer m.lock.Unlock()
 
 	m.makeTemplate(now)
+
+	m.updateETag(now)
 }

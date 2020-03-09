@@ -31,18 +31,26 @@ func handleSeat(w http.ResponseWriter, r *http.Request) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 
-	if d.webViewbody == nil {
+	if d.webBody == nil {
 		header := w.Header()
-		header.Set("Content-Type", "text/plain;charset=utf-8")
+		header.Set("Content-Type", "text/plain; charset=utf-8")
 
 		w.WriteHeader(http.StatusNotFound)
 		w.Write(notFound)
 	} else {
+		if lastModified := r.Header.Get("If-Modified-Since"); len(lastModified) > 0 {
+			if lastModified == d.webLastModified {
+				w.WriteHeader(http.StatusNotModified)
+				return
+			}
+		}
+
 		header := w.Header()
-		header.Set("Content-Type", "text/html;charset=utf-8")
-		header.Set("Content-Length", strconv.Itoa(len(d.webViewbody)))
+		header.Set("Content-Type", "text/html; charset=utf-8")
+		header.Set("Content-Length", strconv.Itoa(len(d.webBody)))
+		header.Set("Last-Modified", d.webLastModified)
 
 		w.WriteHeader(http.StatusOK)
-		w.Write(d.webViewbody)
+		w.Write(d.webBody)
 	}
 }

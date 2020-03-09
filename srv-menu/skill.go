@@ -1,7 +1,67 @@
 package srvmenu
 
 import (
+	"net/http"
+
 	skill "github.com/RyuaNerin/go-kakaoskill/v2"
+	jsoniter "github.com/json-iterator/go"
+)
+
+var (
+	baseReplies = []skill.QuickReply{
+		skill.QuickReply{
+			Label:       "민/학",
+			Action:      "message",
+			MessageText: "민/학",
+		},
+		skill.QuickReply{
+			Label:       "민/교",
+			Action:      "message",
+			MessageText: "민/교",
+		},
+		skill.QuickReply{
+			Label:       "창/학",
+			Action:      "message",
+			MessageText: "창/학",
+		},
+		skill.QuickReply{
+			Label:       "창/교",
+			Action:      "message",
+			MessageText: "창/교",
+		},
+	}
+
+	responseNoWeekend, _ = jsoniter.Marshal(
+		&skill.SkillResponse{
+			Version: "2.0",
+			Template: skill.SkillTemplate{
+				Outputs: []skill.Component{
+					skill.Component{
+						SimpleText: &skill.SimpleText{
+							Text: "주말메뉴는 제공되지 않습니다.",
+						},
+					},
+				},
+				QuickReplies: baseReplies,
+			},
+		},
+	)
+
+	responseError, _ = jsoniter.Marshal(
+		&skill.SkillResponse{
+			Version: "2.0",
+			Template: skill.SkillTemplate{
+				Outputs: []skill.Component{
+					skill.Component{
+						SimpleText: &skill.SimpleText{
+							Text: "식단표 정보를 얻어오지 못하였습니다.\n\n잠시 후 다시 시도해주세요.",
+						},
+					},
+				},
+				QuickReplies: baseReplies,
+			},
+		},
+	)
 )
 
 func skillHandler(ctx *skill.Context) {
@@ -25,43 +85,9 @@ func skillHandler(ctx *skill.Context) {
 	}
 
 	if d == nil {
-		ctx.WriteSimpleText("잘못된 요청입니다.")
+		ctx.ResponseWriter.WriteHeader(http.StatusBadRequest)
 	} else {
-		res := skill.SkillResponse{
-			Version: "2.0",
-			Template: skill.SkillTemplate{
-				Outputs: []skill.Component{
-					skill.Component{
-						SimpleText: &skill.SimpleText{
-							Text: d.getMenu(),
-						},
-					},
-				},
-				QuickReplies: []skill.QuickReply{
-					skill.QuickReply{
-						Label:       "민/학",
-						Action:      "message",
-						MessageText: "민/학",
-					},
-					skill.QuickReply{
-						Label:       "민/교",
-						Action:      "message",
-						MessageText: "민/교",
-					},
-					skill.QuickReply{
-						Label:       "창/학",
-						Action:      "message",
-						MessageText: "창/학",
-					},
-					skill.QuickReply{
-						Label:       "창/교",
-						Action:      "message",
-						MessageText: "창/교",
-					},
-				},
-			},
-		}
-
-		ctx.WriteResponse(&res)
+		ctx.ResponseWriter.WriteHeader(http.StatusOK)
+		ctx.ResponseWriter.Write(d.getSkillResponseBytes())
 	}
 }
