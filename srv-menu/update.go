@@ -59,7 +59,7 @@ func newData(url string, name string) data {
 			Version: "2.0",
 			Template: skill.SkillTemplate{
 				Outputs: []skill.Component{
-					skill.Component{
+					{
 						SimpleText: &skill.SimpleText{},
 					},
 				},

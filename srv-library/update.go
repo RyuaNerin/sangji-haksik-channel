@@ -73,11 +73,11 @@ func newDataSeat(postData string, key string, templateName string, name string) 
 			Version: "2.0",
 			Template: skill.SkillTemplate{
 				Outputs: []skill.Component{
-					skill.Component{
+					{
 						BasicCard: &skill.BasicCard{
 							Title: name,
 							Buttons: []skill.Button{
-								skill.Button{
+								{
 									Label:      "좌석 보기",
 									Action:     "webLink",
 									WebLinkUrl: fmt.Sprintf("%s%s?key=%s", share.ServerUri, pathWebView, key),
@@ -93,7 +93,7 @@ func newDataSeat(postData string, key string, templateName string, name string) 
 			Version: "2.0",
 			Template: skill.SkillTemplate{
 				Outputs: []skill.Component{
-					skill.Component{
+					{
 						BasicCard: &skill.BasicCard{
 							Title: name,
 						},

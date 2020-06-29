@@ -9,27 +9,27 @@ import (
 
 var (
 	baseReplies = []skill.QuickReply{
-		skill.QuickReply{
+		{
 			Label:       "1",
 			Action:      "message",
 			MessageText: "1",
 		},
-		skill.QuickReply{
+		{
 			Label:       "2",
 			Action:      "message",
 			MessageText: "2",
 		},
-		skill.QuickReply{
+		{
 			Label:       "3a",
 			Action:      "message",
 			MessageText: "3a",
 		},
-		skill.QuickReply{
+		{
 			Label:       "3b",
 			Action:      "message",
 			MessageText: "3b",
 		},
-		skill.QuickReply{
+		{
 			Label:       "그룹",
 			Action:      "message",
 			MessageText: "g",
@@ -41,7 +41,7 @@ var (
 			Version: "2.0",
 			Template: skill.SkillTemplate{
 				Outputs: []skill.Component{
-					skill.Component{
+					{
 						SimpleText: &skill.SimpleText{
 							Text: "열람실 정보를 얻어오지 못하였습니다.\n\n잠시 후 다시 시도해주세요.",
 						},

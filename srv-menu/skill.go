@@ -9,22 +9,22 @@ import (
 
 var (
 	baseReplies = []skill.QuickReply{
-		skill.QuickReply{
+		{
 			Label:       "민/학",
 			Action:      "message",
 			MessageText: "민/학",
 		},
-		skill.QuickReply{
+		{
 			Label:       "민/교",
 			Action:      "message",
 			MessageText: "민/교",
 		},
-		skill.QuickReply{
+		{
 			Label:       "창/학",
 			Action:      "message",
 			MessageText: "창/학",
 		},
-		skill.QuickReply{
+		{
 			Label:       "창/교",
 			Action:      "message",
 			MessageText: "창/교",
@@ -36,7 +36,7 @@ var (
 			Version: "2.0",
 			Template: skill.SkillTemplate{
 				Outputs: []skill.Component{
-					skill.Component{
+					{
 						SimpleText: &skill.SimpleText{
 							Text: "주말메뉴는 제공되지 않습니다.",
 						},
@@ -52,7 +52,7 @@ var (
 			Version: "2.0",
 			Template: skill.SkillTemplate{
 				Outputs: []skill.Component{
-					skill.Component{
+					{
 						SimpleText: &skill.SimpleText{
 							Text: "식단표 정보를 얻어오지 못하였습니다.\n\n잠시 후 다시 시도해주세요.",
 						},
