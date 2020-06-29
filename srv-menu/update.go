@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -202,9 +202,9 @@ func (d *data) update(bgnde time.Time, postData []byte) {
 	sb := &d.menuStringBuffer
 
 	for i := 0; i < 5; i++ {
-		menu[0].menu[i] = strings.ReplaceAll(menu[0].menu[i], "&amp;amp;", "&")
-		menu[1].menu[i] = strings.ReplaceAll(menu[1].menu[i], "&amp;amp;", "&")
-		menu[2].menu[i] = strings.ReplaceAll(menu[2].menu[i], "&amp;amp;", "&")
+		menu[0].menu[i] = html.UnescapeString(menu[0].menu[i])
+		menu[1].menu[i] = html.UnescapeString(menu[1].menu[i])
+		menu[2].menu[i] = html.UnescapeString(menu[2].menu[i])
 
 		/**
 		2020년 2월 2일 토요일
