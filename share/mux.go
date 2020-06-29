@@ -16,7 +16,7 @@ func init() {
 	HttpMux.HandleFunc(
 		"/",
 		func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusBadRequest)
+			http.Redirect(w, r, "https://pf.kakao.com/_xbkxdyT", http.StatusFound)
 		},
 	)
 
