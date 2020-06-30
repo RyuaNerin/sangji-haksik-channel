@@ -92,7 +92,6 @@ var (
 		},
 		TerminalToSchool: {
 			Name: "터미널 > 학교",
-			Memo: "우산초교 (정문)",
 			StationList: map[int][]string{
 				터미널앞: {
 					"2-1",
@@ -107,6 +106,7 @@ var (
 					"13",
 				},
 			},
+			Memo: "우산초교 (정문)",
 			MemoBus: []string{
 				"4",
 				"13",
