@@ -224,6 +224,7 @@ func (ri *routeInfo) update(w *sync.WaitGroup) {
 		},
 	}
 
+	ri.skillResponseBodyBuffer.Reset()
 	err := jsoniter.NewEncoder(&ri.skillResponseBodyBuffer).Encode(&skillResponse)
 	if err != nil {
 		sentry.CaptureException(err)
