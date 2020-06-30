@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"sangjihaksik/share"
 	"sort"
@@ -224,8 +223,6 @@ func (ri *routeInfo) update(w *sync.WaitGroup) {
 			},
 		},
 	}
-
-	log.Println(body)
 
 	err := jsoniter.NewEncoder(&ri.skillResponseBodyBuffer).Encode(&skillResponse)
 	if err != nil {
