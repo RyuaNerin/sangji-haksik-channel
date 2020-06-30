@@ -47,7 +47,7 @@ func init() {
 }
 
 func updateFunc() {
-	ticker := time.NewTicker(time.Minute)
+	ticker := time.NewTicker(share.Config.UpdatePeriodBus)
 
 	for {
 		go update()

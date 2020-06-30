@@ -18,6 +18,7 @@ var Config = func() (r struct {
 
 	UpdatePeriodMenu    time.Duration `json:"update-period-menu"`
 	UpdatePeriodLibrary time.Duration `json:"update-period-library"`
+	UpdatePeriodBus     time.Duration `json:"update-period-bus"`
 }) {
 	fs, err := os.Open("config.json")
 	if err != nil {
