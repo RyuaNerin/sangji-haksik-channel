@@ -1,4 +1,4 @@
-package srvstatic
+package srvbus
 
 import (
 	"net/http"
@@ -18,6 +18,8 @@ const (
 func init() {
 	share.HttpMux.HandleFunc(httpPathIn, serveFile(pathIn))
 	share.HttpMux.HandleFunc(httpPathOut, serveFile(pathOut))
+
+	share.SkillMux.F("/skill/bus", skillHandler)
 }
 
 func serveFile(filename string) http.HandlerFunc {
