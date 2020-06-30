@@ -10,7 +10,7 @@ const (
 	httpPathIn  = "/bus/in"
 	httpPathOut = "/bus/out"
 
-	pathBase = "srv-bus/static"
+	pathBase = "srv-bus/public/static"
 	pathIn   = pathBase + "/bus-in.htm"
 	pathOut  = pathBase + "/bus-out.htm"
 )
