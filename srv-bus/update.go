@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"sangjihaksik/share"
 	"sort"
@@ -237,7 +236,6 @@ func (ri *routeInfo) update(w *sync.WaitGroup) {
 	}
 
 	body := strings.TrimSpace(share.ToString(ri.bodyBuffer.Bytes()))
-	log.Println(body)
 	skillResponse := skill.SkillResponse{
 		Version: "2.0",
 		Template: skill.SkillTemplate{
