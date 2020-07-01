@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"sangjihaksik/share"
 	"sort"
@@ -194,7 +195,7 @@ func (ri *routeInfo) update(w *sync.WaitGroup) {
 		}
 
 		if len(ri.busArrivalListTemp) > 0 {
-			sort.SliceIsSorted(
+			sort.Slice(
 				ri.busArrivalListTemp,
 				func(i, j int) bool {
 					if ri.busArrivalListTemp[i].remainMinutes == ri.busArrivalListTemp[j].remainMinutes {
@@ -208,8 +209,8 @@ func (ri *routeInfo) update(w *sync.WaitGroup) {
 			bodyWritten = true
 			fmt.Fprintf(&ri.bodyBuffer, "\n- %s\n", si.StationName)
 
-			withMemo := false
 			for _, arrival := range ri.busArrivalListTemp {
+				withMemo := false
 				for _, busNumberWithMemo := range ri.MemoBus {
 					if arrival.number == busNumberWithMemo {
 						withMemo = true
@@ -236,6 +237,7 @@ func (ri *routeInfo) update(w *sync.WaitGroup) {
 	}
 
 	body := strings.TrimSpace(share.ToString(ri.bodyBuffer.Bytes()))
+	log.Println(body)
 	skillResponse := skill.SkillResponse{
 		Version: "2.0",
 		Template: skill.SkillTemplate{
