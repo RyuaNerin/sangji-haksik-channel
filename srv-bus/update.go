@@ -250,6 +250,11 @@ func (ri *routeInfo) update(w *sync.WaitGroup) {
 		},
 	}
 
+	ri.skillResponseLock.Lock()
+	defer ri.skillResponseLock.Unlock()
+	
+	ri.skillResponseBody = nil
+
 	ri.skillResponseBodyBuffer.Reset()
 	err := jsoniter.NewEncoder(&ri.skillResponseBodyBuffer).Encode(&skillResponse)
 	if err != nil {
@@ -257,7 +262,5 @@ func (ri *routeInfo) update(w *sync.WaitGroup) {
 		return
 	}
 
-	ri.skillResponseLock.Lock()
-	defer ri.skillResponseLock.Unlock()
 	ri.skillResponseBody = ri.skillResponseBodyBuffer.Bytes()
 }
