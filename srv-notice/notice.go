@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"html"
 	"io"
-	"log"
 	"net/http"
 	"regexp"
 	"sort"
@@ -283,5 +282,4 @@ func (n *noticeInfo) update(w *sync.WaitGroup, total bool) {
 	}
 
 	n.skillResponseData = n.skillResponseDataBuffer.Bytes()
-	log.Println(n.skillResponseDataBuffer.String())
 }
