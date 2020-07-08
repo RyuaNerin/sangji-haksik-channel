@@ -1,8 +1,8 @@
 package srvnotice
 
 import (
-	"bytes"
 	"fmt"
+	"hash/fnv"
 	"html"
 	"io"
 	"net/http"
@@ -10,7 +10,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"sangjihaksik/share"
@@ -18,21 +17,14 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	skill "github.com/RyuaNerin/go-kakaoskill/v2"
 	"github.com/getsentry/sentry-go"
-	jsoniter "github.com/json-iterator/go"
 )
 
 type noticeInfo struct {
-	once sync.Once
-
 	Name    string
 	Url     string
 	UrlView string
 
-	skillResponseLock       sync.RWMutex
-	skillResponseData       []byte
-	skillResponseDataBuffer bytes.Buffer
-
-	skillResponseStruct skill.SkillResponse
+	skillData share.SkillData
 
 	noticeList []noticeArticleInfo
 }
@@ -70,54 +62,13 @@ var (
 			UrlView: "https://www.sangji.ac.kr/prog/bbsArticle/BBSMSTR_000000000052/view.do?nttId=%s",
 		},
 	}
-
-	baseReplies = []skill.QuickReply{
-		{
-			Label:       "공지",
-			Action:      "message",
-			MessageText: "공지사항",
-		},
-		{
-			Label:       "일반",
-			Action:      "message",
-			MessageText: "일반공지",
-		},
-		{
-			Label:       "학사",
-			Action:      "message",
-			MessageText: "학사공지",
-		},
-		{
-			Label:       "장학",
-			Action:      "message",
-			MessageText: "장학공지",
-		},
-		{
-			Label:       "등록",
-			Action:      "message",
-			MessageText: "등록공지",
-		},
-	}
 )
 
 func init() {
-	go func() {
-		ticker := time.NewTicker(share.Config.UpdatePeriodNotice)
-
-		update()
-
-		<-ticker.C
-	}()
+	share.DoUpdate(share.Config.UpdatePeriodNotice, update)
 }
 
-var updateIsRunning int32 = 0
-
 func update() {
-	if atomic.SwapInt32(&updateIsRunning, 1) != 0 {
-		return
-	}
-	defer atomic.StoreInt32(&updateIsRunning, 0)
-
 	var w sync.WaitGroup
 	for _, n := range notice {
 		w.Add(1)
@@ -135,31 +86,18 @@ var regexArticleId = regexp.MustCompile(`fn_search_detail\('([^']+)'\)`)
 func (n *noticeInfo) update(w *sync.WaitGroup, total bool) {
 	defer w.Done()
 
-	n.once.Do(func() {
-		n.skillResponseStruct = skill.SkillResponse{
-			Version: "2.0",
-			Template: skill.SkillTemplate{
-				Outputs: []skill.Component{
-					{
-						ListCard: &skill.ListCard{
-							Header: skill.ListItemHeader{
-								Title: n.Name,
-								Link: skill.Link{
-									Web: n.Url,
-								},
-							},
-							Items: make([]skill.ListItemItems, 0, 5),
-						},
-					},
-				},
-				QuickReplies: baseReplies,
-			},
-		}
-	})
-
 	n.noticeList = n.noticeList[:0]
 
+	h := fnv.New64()
 	if total {
+		for _, ni := range notice {
+			h.Write(ni.skillData.GetHash())
+		}
+
+		if !n.skillData.CheckHash(h.Sum(nil)) {
+			return
+		}
+
 		var noticeList []noticeArticleInfo
 
 		for i, ni := range notice {
@@ -190,9 +128,13 @@ func (n *noticeInfo) update(w *sync.WaitGroup, total bool) {
 		}
 		defer res.Body.Close()
 
-		doc, err := goquery.NewDocumentFromReader(res.Body)
+		doc, err := goquery.NewDocumentFromReader(io.TeeReader(res.Body, h))
 		if err != nil && err != io.EOF {
 			sentry.CaptureException(err)
+			return
+		}
+
+		if !n.skillData.CheckHash(h.Sum(nil)) {
 			return
 		}
 
@@ -255,10 +197,30 @@ func (n *noticeInfo) update(w *sync.WaitGroup, total bool) {
 		)
 	}
 
-	n.skillResponseStruct.Template.Outputs[0].ListCard.Items = n.skillResponseStruct.Template.Outputs[0].ListCard.Items[:0]
+	s := skill.SkillResponse{
+		Version: "2.0",
+		Template: skill.SkillTemplate{
+			Outputs: []skill.Component{
+				{
+					ListCard: &skill.ListCard{
+						Header: skill.ListItemHeader{
+							Title: n.Name,
+							Link: skill.Link{
+								Web: n.Url,
+							},
+						},
+						Items: make([]skill.ListItemItems, 0, 5),
+					},
+				},
+			},
+			QuickReplies: baseReplies,
+		},
+	}
+
+	s.Template.Outputs[0].ListCard.Items = s.Template.Outputs[0].ListCard.Items[:0]
 	for _, ni := range n.noticeList {
-		n.skillResponseStruct.Template.Outputs[0].ListCard.Items = append(
-			n.skillResponseStruct.Template.Outputs[0].ListCard.Items,
+		s.Template.Outputs[0].ListCard.Items = append(
+			s.Template.Outputs[0].ListCard.Items,
 			skill.ListItemItems{
 				Title:       ni.title,
 				Description: ni.postedAt,
@@ -269,17 +231,5 @@ func (n *noticeInfo) update(w *sync.WaitGroup, total bool) {
 		)
 	}
 
-	n.skillResponseLock.Lock()
-	defer n.skillResponseLock.Unlock()
-
-	n.skillResponseData = nil
-
-	n.skillResponseDataBuffer.Reset()
-	err := jsoniter.NewEncoder(&n.skillResponseDataBuffer).Encode(&n.skillResponseStruct)
-	if err != nil {
-		sentry.CaptureException(err)
-		return
-	}
-
-	n.skillResponseData = n.skillResponseDataBuffer.Bytes()
+	n.skillData.Update(&s)
 }

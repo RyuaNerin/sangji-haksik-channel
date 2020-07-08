@@ -10,85 +10,116 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	skill "github.com/RyuaNerin/go-kakaoskill/v2"
 	"github.com/getsentry/sentry-go"
-	jsoniter "github.com/json-iterator/go"
 )
 
-/*
-[학교 > 터미널]
+type stationInfo struct {
+	StationName string // 정류장 이름
+	RequestBody []byte // api 호출용
 
-- 우산초교
-30 : 2분 후 (2 정거장 전)
+	arrivalList []arrivalInfo
+}
+type arrivalInfo struct {
+	number         string
+	remainMinutes  int // 몇 분 남음
+	remainStations int // 몇 정거장 남음
+}
 
-- 상지마트 앞
-도착 예정 버스 없음
+type routeInfo struct {
+	Name        string           // 목적지 이름
+	StationList map[int][]string // 정류장 목록
+	MemoBus     []string         // 메모 표시할 버스
+	Memo        string           // 메모
 
-----------------------------------------
+	busArrivalListTemp []arrivalInfo
 
-[터미널 > 학교]
+	skillData share.SkillData
 
-- 터미널 앞
-2-1 : 3분 후 (2 정거장 전) *
-4 : 3분 후 (2 정거장 전) *
-
-- 터미널 건너편
-도착 예정 버스 없음
-
-* 학교 정문
-*/
+	bodyBuffer bytes.Buffer // 텍스트 버퍼
+}
 
 var (
-	baseReplies = []skill.QuickReply{
-		{
-			Label:       "학→터",
-			Action:      "message",
-			MessageText: "학→터",
+	routeList = map[int]*routeInfo{
+		SchoolToTerminal: {
+			Name: "학교 > 터미널",
+			StationList: map[int][]string{
+				우산초교: {
+					"4",
+					"13",
+					"30",
+				},
+				강원정비기술학원: {
+					"2-1",
+					"16",
+					"31",
+					"34",
+					"90",
+				},
+			},
 		},
-		{
-			Label:       "터→학",
-			Action:      "message",
-			MessageText: "터→학",
+		TerminalToSchool: {
+			Name: "터미널 > 학교",
+			StationList: map[int][]string{
+				터미널앞: {
+					"2-1",
+					"4",
+					"16",
+					"30",
+					"31",
+					"34",
+					"90",
+				},
+				터미널맞은편: {
+					"13",
+				},
+			},
+			Memo: "우산초교 (정문)",
+			MemoBus: []string{
+				"4",
+				"13",
+				"30",
+			},
 		},
-		{
-			Label:       "학→원",
-			Action:      "message",
-			MessageText: "학→원",
+		SchoolToStation: {
+			Name: "학교 > 원주역",
+			StationList: map[int][]string{
+				강원정비기술학원: {
+					"2",
+					"16-1",
+					"21", "22", "23", "24",
+					"32",
+					"41", "41-2",
+					"82",
+					"90",
+				},
+			},
 		},
-		{
-			Label:       "원→학",
-			Action:      "message",
-			MessageText: "원→학",
+		StationToSchool: {
+			Name: "원주역 > 학교",
+			StationList: map[int][]string{
+				원주역: {
+					"2",
+					"16-1",
+					"21", "22", "23", "24",
+					"32",
+					"41", "41-2",
+					"82",
+					"90",
+				},
+			},
 		},
 	}
 )
 
 func init() {
-	go updateFunc()
+	share.DoUpdate(share.Config.UpdatePeriodBus, update)
 }
-
-func updateFunc() {
-	ticker := time.NewTicker(share.Config.UpdatePeriodBus)
-
-	for {
-		go update()
-
-		<-ticker.C
-	}
-}
-
-var uploadLock int32
 
 func update() {
-	if atomic.SwapInt32(&uploadLock, 1) != 0 {
-		return
-	}
-	defer atomic.StoreInt32(&uploadLock, 0)
-
 	var w sync.WaitGroup
 
 	for _, si := range stationList {
@@ -159,6 +190,29 @@ func (si *stationInfo) update(w *sync.WaitGroup) {
 
 func (ri *routeInfo) update(w *sync.WaitGroup) {
 	defer w.Done()
+
+	/**
+	[학교 > 터미널]
+
+	- 우산초교
+	30 : 2분 후 (2 정거장 전)
+
+	- 상지마트 앞
+	도착 예정 버스 없음
+
+	----------------------------------------
+
+	[터미널 > 학교]
+
+	- 터미널 앞
+	2-1 : 3분 후 (2 정거장 전) *
+	4 : 3분 후 (2 정거장 전) *
+
+	- 터미널 건너편
+	도착 예정 버스 없음
+
+	* 학교 정문
+	*/
 
 	ri.bodyBuffer.Reset()
 
@@ -236,7 +290,7 @@ func (ri *routeInfo) update(w *sync.WaitGroup) {
 	}
 
 	body := strings.TrimSpace(share.ToString(ri.bodyBuffer.Bytes()))
-	skillResponse := skill.SkillResponse{
+	sr := skill.SkillResponse{
 		Version: "2.0",
 		Template: skill.SkillTemplate{
 			Outputs: []skill.Component{
@@ -250,17 +304,5 @@ func (ri *routeInfo) update(w *sync.WaitGroup) {
 		},
 	}
 
-	ri.skillResponseLock.Lock()
-	defer ri.skillResponseLock.Unlock()
-	
-	ri.skillResponseBody = nil
-
-	ri.skillResponseBodyBuffer.Reset()
-	err := jsoniter.NewEncoder(&ri.skillResponseBodyBuffer).Encode(&skillResponse)
-	if err != nil {
-		sentry.CaptureException(err)
-		return
-	}
-
-	ri.skillResponseBody = ri.skillResponseBodyBuffer.Bytes()
+	ri.skillData.Update(&sr)
 }

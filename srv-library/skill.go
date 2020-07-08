@@ -2,9 +2,10 @@ package srvlibrary
 
 import (
 	"net/http"
+	"sangjihaksik/share"
+	"strconv"
 
 	skill "github.com/RyuaNerin/go-kakaoskill/v2"
-	jsoniter "github.com/json-iterator/go"
 )
 
 var (
@@ -36,53 +37,26 @@ var (
 		},
 	}
 
-	responseError, _ = jsoniter.Marshal(
-		&skill.SkillResponse{
-			Version: "2.0",
-			Template: skill.SkillTemplate{
-				Outputs: []skill.Component{
-					{
-						SimpleText: &skill.SimpleText{
-							Text: "열람실 정보를 얻어오지 못하였습니다.\n\n잠시 후 다시 시도해주세요.",
-						},
-					},
-				},
-				QuickReplies: baseReplies,
-			},
-		},
+	responseError = share.NewSkillDataWithErrorMessage(
+		"열람실 정보를 얻어오지 못하였습니다.\n\n잠시 후 다시 시도해주세요.",
+		baseReplies,
 	)
 )
 
 func skillHandler(ctx *skill.Context) {
-	var d *data
-
+	key := 0
 	if ctx.Payload.Action.Params != nil {
-		if keyRaw, ok := ctx.Payload.Action.Params["key"]; ok {
-			if key, ok := keyRaw.(string); ok {
-				switch key {
-				case "0": // 제1열람실
-					d = &seat1
-				case "1": // 제2열람실
-					d = &seat2
-				case "2": // 제3열람실A
-					d = &seat3a
-				case "3": // 제3열람실B
-					d = &seat3b
-				case "4": // 그룹스터디실(2층)
-					d = &seatRoom
-				}
+		if keyStrRaw, ok := ctx.Payload.Action.Params["key"]; ok {
+			if keyStr, ok := keyStrRaw.(string); ok {
+				key, _ = strconv.Atoi(keyStr)
 			}
 		}
 	}
 
-	if d == nil {
+	n, ok := seat[key]
+	if !ok {
 		ctx.ResponseWriter.WriteHeader(http.StatusBadRequest)
-		return
+	} else {
+		n.skillData.Serve(ctx)
 	}
-
-	d.lock.RLock()
-	defer d.lock.RUnlock()
-
-	ctx.ResponseWriter.WriteHeader(http.StatusOK)
-	ctx.ResponseWriter.Write(d.skillResponse)
 }

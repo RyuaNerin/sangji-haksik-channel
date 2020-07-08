@@ -2,9 +2,11 @@ package srvmenu
 
 import (
 	"net/http"
+	"sangjihaksik/share"
+	"strconv"
+	"time"
 
 	skill "github.com/RyuaNerin/go-kakaoskill/v2"
-	jsoniter "github.com/json-iterator/go"
 )
 
 var (
@@ -31,63 +33,42 @@ var (
 		},
 	}
 
-	responseNoWeekend, _ = jsoniter.Marshal(
-		&skill.SkillResponse{
-			Version: "2.0",
-			Template: skill.SkillTemplate{
-				Outputs: []skill.Component{
-					{
-						SimpleText: &skill.SimpleText{
-							Text: "주말메뉴는 제공되지 않습니다.",
-						},
-					},
-				},
-				QuickReplies: baseReplies,
-			},
-		},
+	responseNoWeekend = share.NewSkillDataWithErrorMessage(
+		"주말메뉴는 제공되지 않습니다.",
+		baseReplies,
 	)
 
-	responseError, _ = jsoniter.Marshal(
-		&skill.SkillResponse{
-			Version: "2.0",
-			Template: skill.SkillTemplate{
-				Outputs: []skill.Component{
-					{
-						SimpleText: &skill.SimpleText{
-							Text: "식단표 정보를 얻어오지 못하였습니다.\n\n잠시 후 다시 시도해주세요.",
-						},
-					},
-				},
-				QuickReplies: baseReplies,
-			},
-		},
+	responseError = share.NewSkillDataWithErrorMessage(
+		"식단표 정보를 얻어오지 못하였습니다.\n\n잠시 후 다시 시도해주세요.",
+		baseReplies,
 	)
 )
 
 func skillHandler(ctx *skill.Context) {
-	var d *data
+	now := time.Now()
 
+	weekday := now.Weekday()
+	if weekday == time.Sunday || weekday == time.Saturday {
+		responseNoWeekend.Serve(ctx)
+	}
+
+	key := 0
 	if ctx.Payload.Action.Params != nil {
-		if keyRaw, ok := ctx.Payload.Action.Params["key"]; ok {
-			if key, ok := keyRaw.(string); ok {
-				switch key {
-				case "0": // 민주관 학생
-					d = &minjuStudent
-				case "1": // 민주관 교직
-					d = &minjuProfessor
-				case "2": // 창조관 학생
-					d = &changjoStudent
-				case "3": // 창조관 교직
-					d = &changjoProfessor
-				}
+		if keyStrRaw, ok := ctx.Payload.Action.Params["key"]; ok {
+			if keyStr, ok := keyStrRaw.(string); ok {
+				key, _ = strconv.Atoi(keyStr)
 			}
 		}
 	}
 
-	if d == nil {
+	n, ok := menu[key]
+	if !ok {
 		ctx.ResponseWriter.WriteHeader(http.StatusBadRequest)
 	} else {
-		ctx.ResponseWriter.WriteHeader(http.StatusOK)
-		ctx.ResponseWriter.Write(d.getSkillResponseBytes())
+		day := int(weekday - time.Monday)
+
+		if !n.menu[day].Serve(ctx) {
+			responseError.Serve(ctx)
+		}
 	}
 }

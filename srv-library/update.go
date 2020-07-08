@@ -2,7 +2,10 @@ package srvlibrary
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
+	"hash/fnv"
+	"html/template"
 	"io"
 	"net/http"
 	"net/url"
@@ -10,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"sangjihaksik/share"
@@ -18,7 +20,6 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	skill "github.com/RyuaNerin/go-kakaoskill/v2"
 	"github.com/getsentry/sentry-go"
-	jsoniter "github.com/json-iterator/go"
 )
 
 var (
@@ -27,108 +28,88 @@ var (
 )
 
 type data struct {
-	name             string
-	updatePostData   []byte
-	templateFileName string
+	once sync.Once
 
-	lock    sync.RWMutex
-	enabled bool // false 일 때 : 운영시간 아님 혹은
+	Name     string
+	PostData []byte
+	Template string
+	WebUrl   string
 
-	textBuffer          bytes.Buffer
-	skillResponse       []byte       // 스킬 응답 사전 생성
-	skillResponseBuffer bytes.Buffer // skillResponse 버퍼
+	enabledLock sync.RWMutex
+	enabled     bool // false 일 때 : 운영시간 아님 혹은
 
-	webBody            []byte       // 웹뷰 데이터
-	webBodyBuffer      bytes.Buffer // 웹뷰 버퍼
-	webLastModified    string       // share.ToString(webViewETagBuf)
-	webLastModifiedBuf []byte
+	textBuffer bytes.Buffer
+	skillData  share.SkillData
 
-	updateHtmlBuffer bytes.Buffer             // 업데이트할 떄 HTML 메모리에 읽을 때 사용할 버퍼
-	updateMapBuffer  map[int]templateDataSeat // 돌려쓰기
+	seat map[int]templateDataSeat // 좌석 정보
+
+	// 여기서부터는 웹에서 쓸 부분
+	webLock       sync.RWMutex
+	webBody       []byte       // 웹뷰 데이터
+	webBodyBuffer bytes.Buffer // 웹뷰 버퍼
+	webETag       string
+
+	webUpdateBuffer bytes.Buffer // 업데이트할 떄 HTML 메모리에 읽을 때 사용할 버퍼
 
 	updating int32
+}
 
-	// 메모리 재할당 방지용 변수
-	skillResponseWithoutButton skill.SkillResponse
-	skillResponseWithButton    skill.SkillResponse
+type templateDataSeat struct {
+	SeatNum string
+	Using   bool
 }
 
 var (
-	seat1    = newDataSeat("sloc_code=SJU&group_code=0&reading_code=04", "0", "room1.tmpl.htm", "제 1 열람실 (3층)")
-	seat2    = newDataSeat("sloc_code=SJU&group_code=0&reading_code=05", "1", "room2.tmpl.htm", "제 2 열람실 (5층)")
-	seat3a   = newDataSeat("sloc_code=SJU&group_code=0&reading_code=01", "2", "room3a.tmpl.htm", "제 3 열람실 A (5층)")
-	seat3b   = newDataSeat("sloc_code=SJU&group_code=0&reading_code=07", "3", "room3b.tmpl.htm", "제 3 열람실 B (5층)")
-	seatRoom = newDataSeat("sloc_code=SJU&group_code=0&reading_code=06", "4", "roomgroup.tmpl.htm", "그룹스터디실(2층)")
-)
-
-func newDataSeat(postData string, key string, templateName string, name string) data {
-	return data{
-		name:             name,
-		updatePostData:   []byte(postData),
-		templateFileName: templateName,
-
-		updateMapBuffer: make(map[int]templateDataSeat, 300),
-
-		skillResponseWithButton: skill.SkillResponse{
-			Version: "2.0",
-			Template: skill.SkillTemplate{
-				Outputs: []skill.Component{
-					{
-						BasicCard: &skill.BasicCard{
-							Title: name,
-							Buttons: []skill.Button{
-								{
-									Label:      "좌석 보기",
-									Action:     "webLink",
-									WebLinkUrl: fmt.Sprintf("%s%s?key=%s", share.ServerUri, pathWebView, key),
-								},
-							},
-						},
-					},
-				},
-				QuickReplies: baseReplies,
-			},
+	seat = map[int]*data{
+		제1열람실: {
+			Name:     "제 1 열람실 (3층)",
+			PostData: share.ToBytes("sloc_code=SJU&group_code=0&reading_code=04"),
+			Template: "room1.tmpl.htm",
+			WebUrl:   fmt.Sprintf("%s%s?key=%d", share.ServerUri, pathWebView, 제1열람실),
 		},
-		skillResponseWithoutButton: skill.SkillResponse{
-			Version: "2.0",
-			Template: skill.SkillTemplate{
-				Outputs: []skill.Component{
-					{
-						BasicCard: &skill.BasicCard{
-							Title: name,
-						},
-					},
-				},
-				QuickReplies: baseReplies,
-			},
+		제2열람실: {
+			Name:     "제 2 열람실 (5층)",
+			PostData: share.ToBytes("sloc_code=SJU&group_code=0&reading_code=05"),
+			Template: "room2.tmpl.htm",
+			WebUrl:   fmt.Sprintf("%s%s?key=%d", share.ServerUri, pathWebView, 제2열람실),
+		},
+		제3열람실A: {
+			Name:     "제 3 열람실 A (5층)",
+			PostData: share.ToBytes("sloc_code=SJU&group_code=0&reading_code=01"),
+			Template: "room3a.tmpl.htm",
+			WebUrl:   fmt.Sprintf("%s%s?key=%d", share.ServerUri, pathWebView, 제3열람실A),
+		},
+		제3열람실B: {
+			Name:     "제 3 열람실 B (5층)",
+			PostData: share.ToBytes("sloc_code=SJU&group_code=0&reading_code=07"),
+			Template: "room3b.tmpl.htm",
+			WebUrl:   fmt.Sprintf("%s%s?key=%d", share.ServerUri, pathWebView, 제3열람실B),
+		},
+		그룹스터디실: {
+			Name:     "그룹스터디실(2층)",
+			PostData: share.ToBytes("sloc_code=SJU&group_code=0&reading_code=06"),
+			Template: "roomgroup.tmpl.htm",
+			WebUrl:   fmt.Sprintf("%s%s?key=%d", share.ServerUri, pathWebView, 그룹스터디실),
 		},
 	}
+
+	tg = template.Must(template.ParseGlob("srv-library/template/*.tmpl.htm"))
+)
+
+func init() {
+	share.DoUpdate(share.Config.UpdatePeriodLibrary, update)
 }
 
-func updateFunc() {
-	// 첫갱신 이후 단위 맞추기
-	var ticker *time.Ticker
+func update() {
+	now := time.Now()
 
-	firstRun := true
-	for {
-		now := time.Now()
-
-		if updateTotal(now) {
-			go seat1.update()
-			go seat2.update()
-			go seat3a.update()
-			go seat3b.update()
-			go seatRoom.update()
+	var w sync.WaitGroup
+	if updateTotal(now) {
+		for _, s := range seat {
+			w.Add(1)
+			go s.update(&w, now)
 		}
-
-		if firstRun {
-			firstRun = false
-
-			<-time.After(time.Until(time.Now().Truncate(share.Config.UpdatePeriodLibrary).Add(share.Config.UpdatePeriodLibrary)))
-			ticker = time.NewTicker(share.Config.UpdatePeriodLibrary)
-		} else {
-			<-ticker.C
-		}
+		w.Wait()
 	}
 }
 
@@ -161,35 +142,27 @@ func updateTotal(now time.Time) bool {
 		return false
 	}
 
-	seat1.lock.Lock()
-	seat2.lock.Lock()
-	seat3a.lock.Lock()
-	seat3b.lock.Lock()
-
-	defer seat1.lock.Unlock()
-	defer seat2.lock.Unlock()
-	defer seat3a.lock.Unlock()
-	defer seat3b.lock.Unlock()
-
 	doc.Find("div.facility_box_whole > div").Each(
 		func(index int, s *goquery.Selection) {
 			var d *data
+			var k int
 
 			ff := strings.TrimSpace(s.Find("div.facility_box_head").Text())
 			switch ff {
 			case "제1열람실(3층)":
-				d = &seat1
+				k = 제1열람실
 			case "제2열람실(5층)":
-				d = &seat2
+				k = 제2열람실
 			case "제3열람실A(5층)":
-				d = &seat3a
+				k = 제3열람실A
 			case "제3열람실B(5층)":
-				d = &seat3b
+				k = 제3열람실B
 			case "그룹스터디실(2층)":
-				d = &seatRoom
+				k = 그룹스터디실
 			default:
 				return
 			}
+			d = seat[k]
 
 			/**
 			이용 가능 : 200 / 210
@@ -213,7 +186,7 @@ func updateTotal(now time.Time) bool {
 				msg := strings.TrimSpace(disabled.Text())
 				fmt.Fprintln(sb, msg)
 
-				d.makeTemplateError(now, msg)
+				d.makeTemplate(now, msg)
 			} else {
 				d.enabled = true
 				seatPossible := s.Find("span.facility_box_seat_possiblenum").Text()
@@ -228,23 +201,32 @@ func updateTotal(now time.Time) bool {
 
 			// Skill Response 생성
 
-			var res *skill.SkillResponse
+			sr := skill.SkillResponse{
+				Version: "2.0",
+				Template: skill.SkillTemplate{
+					Outputs: []skill.Component{
+						{
+							BasicCard: &skill.BasicCard{
+								Title:       d.Name,
+								Description: share.ToString(sb.Bytes()),
+							},
+						},
+					},
+					QuickReplies: baseReplies,
+				},
+			}
+
 			if d.enabled {
-				res = &d.skillResponseWithButton
-			} else {
-				res = &d.skillResponseWithoutButton
-			}
-			res.Template.Outputs[0].BasicCard.Description = share.ToString(sb.Bytes())
-
-			d.skillResponseBuffer.Reset()
-			err := jsoniter.NewEncoder(&d.skillResponseBuffer).Encode(res)
-			if err != nil {
-				d.skillResponse = responseError
-				sentry.CaptureException(err)
-				return
+				sr.Template.Outputs[0].BasicCard.Buttons = []skill.Button{
+					{
+						Label:      "좌석 보기",
+						Action:     "webLink",
+						WebLinkUrl: d.WebUrl,
+					},
+				}
 			}
 
-			d.skillResponse = d.skillResponseBuffer.Bytes()
+			d.skillData.Update(&sr)
 		},
 	)
 
@@ -338,22 +320,14 @@ func updateTotalLogin() bool {
 	return true
 }
 
-func (m *data) update() {
-	m.lock.RLock()
-	if !m.enabled {
-		m.lock.RUnlock()
-		return
-	}
-	m.lock.RUnlock()
+func (m *data) update(w *sync.WaitGroup, now time.Time) {
+	defer w.Done()
 
-	if !atomic.CompareAndSwapInt32(&m.updating, 0, 1) {
-		return
-	}
-	defer atomic.StoreInt32(&m.updating, 0)
+	m.once.Do(func() {
+		m.seat = make(map[int]templateDataSeat, 300)
+	})
 
-	now := time.Now()
-
-	req, _ := http.NewRequest("POST", "https://library.sangji.ac.kr/reading_seat_map.mir", bytes.NewReader(m.updatePostData))
+	req, _ := http.NewRequest("POST", "https://library.sangji.ac.kr/reading_seat_map.mir", bytes.NewReader(m.PostData))
 	req.Header = http.Header{
 		"User-Agent":   []string{share.UserAgent},
 		"Content-Type": []string{"application/x-www-form-urlencoded"},
@@ -367,18 +341,18 @@ func (m *data) update() {
 	}
 	defer res.Body.Close()
 
-	m.updateHtmlBuffer.Reset()
-	_, err = io.Copy(&m.updateHtmlBuffer, res.Body)
+	m.webUpdateBuffer.Reset()
+	_, err = io.Copy(&m.webUpdateBuffer, res.Body)
 	if err != nil && err != io.EOF {
 		sentry.CaptureException(err)
 		return
 	}
 
-	body := share.ToString(m.updateHtmlBuffer.Bytes())
+	body := share.ToString(m.webUpdateBuffer.Bytes())
 
 	// 비우기
-	for k := range m.updateMapBuffer {
-		delete(m.updateMapBuffer, k)
+	for k := range m.seat {
+		delete(m.seat, k)
 	}
 
 	// 좌석 정보 읽는 부분
@@ -389,7 +363,7 @@ func (m *data) update() {
 			continue
 		}
 
-		m.updateMapBuffer[seatNum] = templateDataSeat{
+		m.seat[seatNum] = templateDataSeat{
 			SeatNum: seatNumStr,
 		}
 	}
@@ -402,16 +376,53 @@ func (m *data) update() {
 			continue
 		}
 
-		m.updateMapBuffer[seatNum] = templateDataSeat{
+		m.seat[seatNum] = templateDataSeat{
 			SeatNum: seatNumStr,
 			Using:   true,
 		}
 	}
 
-	m.lock.Lock()
-	defer m.lock.Unlock()
+	m.makeTemplate(now, "")
+}
 
-	m.makeTemplate(now)
+func (d *data) makeTemplate(now time.Time, disabledMessage string) {
+	type templateData struct {
+		Name      string // 열람실 이름
+		UpdatedAt string // 업데이트 기준일
 
-	m.updateETag(now)
+		DisabledMessage string // 에러용 메시지
+
+		Seat map[int]templateDataSeat
+	}
+
+	td := templateData{
+		Name:      d.Name,
+		UpdatedAt: share.TimeFormatKr.Replace(now.Format("2006년 1월 2일 Mon pm 3시 4분 기준")),
+	}
+
+	var templateFile string
+	if disabledMessage == "" {
+		td.Seat = d.seat
+		templateFile = d.Template
+	} else {
+		td.DisabledMessage = disabledMessage
+		templateFile = "disabled.tmpl.htm"
+	}
+
+	h := fnv.New64()
+
+	d.webLock.Lock()
+	defer d.webLock.Unlock()
+
+	d.webBody = nil
+
+	d.webBodyBuffer.Reset()
+	err := tg.ExecuteTemplate(io.MultiWriter(&d.webBodyBuffer, h), templateFile, td)
+	if err != nil {
+		sentry.CaptureException(err)
+		return
+	}
+
+	d.webBody = d.webBodyBuffer.Bytes()
+	d.webETag = hex.EncodeToString(h.Sum(nil))
 }

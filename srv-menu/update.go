@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"html"
 	"io"
 	"net/http"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"sangjihaksik/share"
@@ -19,111 +19,72 @@ import (
 )
 
 type data struct {
-	name    string
-	pageUrl string
+	Name string
+	Url  string
 
-	lock sync.RWMutex
-	menu [5]dataMenu // 월 ~ 금
+	// 월 ~ 금
+	dayLock sync.RWMutex
+	day     [5]int
+	menu    [5]share.SkillData
 
-	menuStringBuffer bytes.Buffer // 일일 시간표 텍스트 생성에 사용될 버퍼
+	// 일일 시간표 텍스트 생성에 사용될 버퍼
+	menuStringBuffer bytes.Buffer
 
-	// 중복 업데이트 방지
-	updating int32
-
-	// 메뉴판 업데이트 확인용 변수
-	jsonItemCount   int
-	jsonItemModDate [3]string
-
-	// 메모리 재할당 방지용 변수
-	skillResponse skill.SkillResponse
-}
-type dataMenu struct {
-	day                 int          // 일
-	skillResponse       []byte       // 스킬 응답 사전 생성
-	skillResponseBuffer bytes.Buffer // skillResponse 용 버퍼
+	// 메뉴 업데이트 확인용
+	hash uint64
 }
 
 var (
-	minjuStudent     = newData("https://www.sangji.ac.kr/prog/carteGuidance/kor/sub07_10_01/DS/getCalendar.do", "민주관 학생식당")
-	minjuProfessor   = newData("https://www.sangji.ac.kr/prog/carteGuidance/kor/sub07_10_02/DP/getCalendar.do", "민주관 교직원식당")
-	changjoStudent   = newData("https://www.sangji.ac.kr/prog/carteGuidance/kor/sub07_10_03/CS/getCalendar.do", "창조관 학생식당")
-	changjoProfessor = newData("https://www.sangji.ac.kr/prog/carteGuidance/kor/sub07_10_04/CP/getCalendar.do", "창조관 교직원식당")
-)
-
-func newData(url string, name string) data {
-	return data{
-		name:          name,
-		pageUrl:       url,
-		jsonItemCount: -1,
-		skillResponse: skill.SkillResponse{
-			Version: "2.0",
-			Template: skill.SkillTemplate{
-				Outputs: []skill.Component{
-					{
-						SimpleText: &skill.SimpleText{},
-					},
-				},
-				QuickReplies: baseReplies,
-			},
+	menu = map[int]*data{
+		민주학생: {
+			Name: "민주관 학생식당",
+			Url:  "https://www.sangji.ac.kr/prog/carteGuidance/kor/sub07_10_01/DS/getCalendar.do",
+		},
+		민주교직: {
+			Name: "민주관 교직원식당",
+			Url:  "https://www.sangji.ac.kr/prog/carteGuidance/kor/sub07_10_02/DP/getCalendar.do",
+		},
+		창조학생: {
+			Name: "창조관 학생식당",
+			Url:  "https://www.sangji.ac.kr/prog/carteGuidance/kor/sub07_10_03/CS/getCalendar.do",
+		},
+		창조교직: {
+			Name: "창조관 교직원식당",
+			Url:  "https://www.sangji.ac.kr/prog/carteGuidance/kor/sub07_10_04/CP/getCalendar.do",
 		},
 	}
+)
+
+func init() {
+	share.DoUpdate(share.Config.UpdatePeriodMenu, update)
 }
 
-func updateFunc() {
-	ticker := time.NewTicker(share.Config.UpdatePeriodMenu)
+func update() {
+	bgnde := time.Now()
 
-	for {
-		bgnde := time.Now()
-
-		skip := false
-		switch bgnde.Weekday() {
-		case time.Saturday: // 토요일 업데이트 안함
-			skip = true
-		case time.Sunday: // 내일 (월요일) 꺼 미리 업데이트
-			bgnde.Add(24 * time.Hour)
-		default:
-			bgnde = bgnde.Add(time.Duration(bgnde.Weekday()-time.Monday) * -24 * time.Hour)
-		}
-
-		if !skip {
-			postData := []byte(bgnde.Format("bgnde=2006-01-02"))
-
-			go minjuStudent.update(bgnde, postData)
-			go minjuProfessor.update(bgnde, postData)
-			go changjoStudent.update(bgnde, postData)
-			go changjoProfessor.update(bgnde, postData)
-		}
-
-		<-ticker.C
-	}
-}
-
-func (m *data) getSkillResponseBytes() []byte {
-	now := time.Now()
-
-	weekday := now.Weekday()
-	if weekday == time.Sunday || weekday == time.Saturday {
-		return responseNoWeekend
-	}
-
-	m.lock.RLock()
-	defer m.lock.RUnlock()
-
-	md := m.menu[int(weekday-time.Monday)]
-	if md.day != now.Day() {
-		return responseError
-	}
-
-	return md.skillResponse
-}
-
-func (d *data) update(bgnde time.Time, postData []byte) {
-	if !atomic.CompareAndSwapInt32(&d.updating, 0, 1) {
+	switch bgnde.Weekday() {
+	case time.Saturday: // 토요일 업데이트 안함
 		return
+	case time.Sunday: // 내일 (월요일) 꺼 미리 업데이트
+		bgnde.Add(24 * time.Hour)
+	default:
+		bgnde = bgnde.Add(time.Duration(bgnde.Weekday()-time.Monday) * -24 * time.Hour)
 	}
-	defer atomic.StoreInt32(&d.updating, 0)
 
-	req, _ := http.NewRequest("POST", d.pageUrl, bytes.NewReader(postData))
+	postData := []byte(bgnde.Format("bgnde=2006-01-02"))
+
+	var w sync.WaitGroup
+	for _, d := range menu {
+		w.Add(1)
+		go d.update(&w, bgnde, postData)
+	}
+	w.Wait()
+}
+
+func (d *data) update(w *sync.WaitGroup, bgnde time.Time, postData []byte) {
+	defer w.Done()
+
+	req, _ := http.NewRequest("POST", d.Url, bytes.NewReader(postData))
 	req.Header = http.Header{
 		"User-Agent":   []string{"sangji-haksik-channel"},
 		"Content-Type": []string{"application/x-www-form-urlencoded; charset=utf-8"},
@@ -150,11 +111,19 @@ func (d *data) update(bgnde time.Time, postData []byte) {
 		} `json:"item"`
 	}
 
-	err = jsoniter.NewDecoder(res.Body).Decode(&responseJson)
+	h := fnv.New64()
+
+	err = jsoniter.NewDecoder(io.TeeReader(res.Body, h)).Decode(&responseJson)
 	if err != nil && err != io.EOF {
 		sentry.CaptureException(err)
 		return
 	}
+
+	hash := h.Sum64()
+	if d.hash == hash {
+		return
+	}
+	d.hash = hash
 
 	// 아/점/저
 	var menu = make(
@@ -163,8 +132,6 @@ func (d *data) update(bgnde time.Time, postData []byte) {
 			menu [5]string
 		},
 		3)
-
-	modified := len(responseJson.Item) != d.jsonItemCount
 
 	var jsonItemModDate [3]string
 
@@ -185,19 +152,8 @@ func (d *data) update(bgnde time.Time, postData []byte) {
 		menu[index].time = item.Time
 		menu[index].menu = [5]string{item.WeekDay0, item.WeekDay1, item.WeekDay2, item.WeekDay3, item.WeekDay4}
 
-		modified = modified || d.jsonItemModDate[index] != item.ModDate
 		jsonItemModDate[index] = item.ModDate
 	}
-
-	if !modified {
-		return
-	}
-
-	d.lock.Lock()
-	defer d.lock.Unlock()
-
-	d.jsonItemCount = len(responseJson.Item)
-	d.jsonItemModDate = jsonItemModDate
 
 	sb := &d.menuStringBuffer
 
@@ -230,7 +186,7 @@ func (d *data) update(bgnde time.Time, postData []byte) {
 
 		dt := bgnde.Add(time.Duration(i) * 24 * time.Hour)
 		fmt.Fprintln(sb, share.TimeFormatKr.Replace(dt.Format("2006년 1월 2일 Mon")))
-		fmt.Fprintln(sb, d.name)
+		fmt.Fprintln(sb, d.Name)
 		fmt.Fprintln(sb)
 
 		// 메뉴 없음
@@ -271,18 +227,20 @@ func (d *data) update(bgnde time.Time, postData []byte) {
 			}
 		}
 
-		d.menu[i].day = dt.Day()
-
-		d.skillResponse.Template.Outputs[0].SimpleText.Text = share.ToString(sb.Bytes())
-
-		d.menu[i].skillResponseBuffer.Reset()
-		err := jsoniter.NewEncoder(&d.menu[i].skillResponseBuffer).Encode(&d.skillResponse)
-		if err != nil {
-			d.menu[i].skillResponse = responseError
-			sentry.CaptureException(err)
-			continue
+		s := skill.SkillResponse{
+			Version: "2.0",
+			Template: skill.SkillTemplate{
+				Outputs: []skill.Component{
+					{
+						SimpleText: &skill.SimpleText{
+							Text: share.ToString(sb.Bytes()),
+						},
+					},
+				},
+				QuickReplies: baseReplies,
+			},
 		}
 
-		d.menu[i].skillResponse = d.menu[i].skillResponseBuffer.Bytes()
+		d.menu[i].Update(&s)
 	}
 }
