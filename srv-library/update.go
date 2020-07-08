@@ -99,7 +99,7 @@ var (
 		},
 	}
 
-	tg = template.Must(template.ParseGlob("srv-library/template/*.tmpl.htm"))
+	tg = template.Must(template.ParseGlob("srv-library/public/*.tmpl.htm"))
 
 	client = http.Client{
 		Transport: http.DefaultTransport,

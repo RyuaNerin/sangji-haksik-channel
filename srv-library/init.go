@@ -31,5 +31,5 @@ func init() {
 	share.SkillMux.F("/skill/library", skillHandler)
 
 	share.HttpMux.HandleFunc(pathWebView, handleSeat)
-	share.HttpMux.Handle(pathWebViewStatic, http.StripPrefix(pathWebViewStatic, http.FileServer(http.Dir("srv-library/template/static"))))
+	share.HttpMux.Handle(pathWebViewStatic, http.StripPrefix(pathWebViewStatic, http.FileServer(http.Dir("srv-library/public/static"))))
 }
