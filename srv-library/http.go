@@ -22,9 +22,6 @@ func handleSeat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	d.enabledLock.RLock()
-	defer d.enabledLock.RUnlock()
-
 	if d.webBody == nil {
 		header := w.Header()
 		header.Set("Content-Type", "text/plain; charset=utf-8")

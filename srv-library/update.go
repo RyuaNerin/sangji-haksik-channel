@@ -35,8 +35,7 @@ type roomData struct {
 	Template string
 	WebUrl   string
 
-	enabledLock sync.RWMutex
-	enabled     bool // false 일 때 : 운영시간 아님 혹은
+	enabled bool // false 일 때 : 운영시간 아님 혹은
 
 	textBuffer bytes.Buffer
 

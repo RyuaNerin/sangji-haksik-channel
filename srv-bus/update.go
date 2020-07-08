@@ -43,6 +43,29 @@ type routeInfo struct {
 }
 
 var (
+	stationList = map[int]*stationInfo{
+		우산초교: {
+			StationName: "우산초교 (정문)",
+			RequestBody: []byte("station_id=251061041"),
+		},
+		강원정비기술학원: {
+			StationName: "강원정비기술학원 (상지마트)",
+			RequestBody: []byte("station_id=251061013"),
+		},
+		터미널앞: {
+			StationName: "터미널 앞",
+			RequestBody: []byte("station_id=251060037"),
+		},
+		터미널맞은편: {
+			StationName: "터미널 길건너",
+			RequestBody: []byte("station_id=251060036"),
+		},
+		원주역: {
+			StationName: "원주역 (CU 앞)",
+			RequestBody: []byte("station_id=251058010"),
+		},
+	}
+
 	routeList = map[int]*routeInfo{
 		SchoolToTerminal: {
 			Name: "학교 > 터미널",

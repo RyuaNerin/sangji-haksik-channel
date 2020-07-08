@@ -9,26 +9,26 @@ import (
 )
 
 var (
-	stationList = map[int]*stationInfo{
-		우산초교: {
-			StationName: "우산초교 (정문)",
-			RequestBody: []byte("station_id=251061041"),
+	baseReplies = []skill.QuickReply{
+		{
+			Label:       "학→터",
+			Action:      "message",
+			MessageText: "학→터",
 		},
-		강원정비기술학원: {
-			StationName: "강원정비기술학원 (상지마트)",
-			RequestBody: []byte("station_id=251061013"),
+		{
+			Label:       "터→학",
+			Action:      "message",
+			MessageText: "터→학",
 		},
-		터미널앞: {
-			StationName: "터미널 앞",
-			RequestBody: []byte("station_id=251060037"),
+		{
+			Label:       "학→원",
+			Action:      "message",
+			MessageText: "학→원",
 		},
-		터미널맞은편: {
-			StationName: "터미널 길건너",
-			RequestBody: []byte("station_id=251060036"),
-		},
-		원주역: {
-			StationName: "원주역 (CU 앞)",
-			RequestBody: []byte("station_id=251058010"),
+		{
+			Label:       "원→학",
+			Action:      "message",
+			MessageText: "원→학",
 		},
 	}
 
