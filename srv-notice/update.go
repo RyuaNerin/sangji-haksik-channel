@@ -112,7 +112,7 @@ func (n *noticeInfo) update(w *sync.WaitGroup, total bool) {
 		)
 
 		n.noticeList = n.noticeList[:0]
-		for i := 0; i < 5; i++ {
+		for i := 0; i < 5 && i < len(noticeList); i++ {
 			n.noticeList = append(n.noticeList, noticeList[i])
 		}
 	} else {
