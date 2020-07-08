@@ -7,5 +7,5 @@ require (
 	github.com/RyuaNerin/go-kakaoskill/v2 v2.0.2
 	github.com/getsentry/sentry-go v0.6.1
 	github.com/json-iterator/go v1.1.10
-	golang.org/x/net v0.0.0-20200625001655-4c5254603344
+	golang.org/x/net v0.0.0-20200707034311-ab3426394381
 )
