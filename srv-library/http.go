@@ -16,7 +16,7 @@ func handleSeat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	d, ok := seat[key]
+	d, ok := roomMap[key]
 	if !ok {
 		w.WriteHeader(http.StatusBadRequest)
 		return

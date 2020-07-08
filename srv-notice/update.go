@@ -86,8 +86,6 @@ var regexArticleId = regexp.MustCompile(`fn_search_detail\('([^']+)'\)`)
 func (n *noticeInfo) update(w *sync.WaitGroup, total bool) {
 	defer w.Done()
 
-	n.noticeList = n.noticeList[:0]
-
 	h := fnv.New64()
 	if total {
 		for _, ni := range notice {
@@ -113,6 +111,7 @@ func (n *noticeInfo) update(w *sync.WaitGroup, total bool) {
 			},
 		)
 
+		n.noticeList = n.noticeList[:0]
 		for i := 0; i < 5; i++ {
 			n.noticeList = append(n.noticeList, noticeList[i])
 		}
@@ -138,6 +137,7 @@ func (n *noticeInfo) update(w *sync.WaitGroup, total bool) {
 			return
 		}
 
+		n.noticeList = n.noticeList[:0]
 		doc.Find("table.board_list tr").EachWithBreak(
 			func(index int, s *goquery.Selection) bool {
 				if s.HasClass("notice") {

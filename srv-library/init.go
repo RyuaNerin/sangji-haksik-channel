@@ -17,6 +17,16 @@ const (
 	그룹스터디실 = 4
 )
 
+var (
+	roomIndex = []int{
+		제1열람실,
+		제2열람실,
+		제3열람실A,
+		제3열람실B,
+		그룹스터디실,
+	}
+)
+
 func init() {
 	share.SkillMux.F("/skill/library", skillHandler)
 

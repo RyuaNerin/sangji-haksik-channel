@@ -27,7 +27,7 @@ var (
 	regExtractSeatUsing   = regexp.MustCompile(`var\s+tbl_seat_id\s+=\s+'\d+\D(\d+)'`)
 )
 
-type data struct {
+type roomData struct {
 	once sync.Once
 
 	Name     string
@@ -39,9 +39,8 @@ type data struct {
 	enabled     bool // false 일 때 : 운영시간 아님 혹은
 
 	textBuffer bytes.Buffer
-	skillData  share.SkillData
 
-	seat map[int]templateDataSeat // 좌석 정보
+	seat map[int]SeatState // 좌석 정보
 
 	// 여기서부터는 웹에서 쓸 부분
 	webLock       sync.RWMutex
@@ -54,13 +53,15 @@ type data struct {
 	updating int32
 }
 
-type templateDataSeat struct {
+type SeatState struct {
 	SeatNum string
 	Using   bool
 }
 
 var (
-	seat = map[int]*data{
+	skillData share.SkillData
+
+	roomMap = map[int]*roomData{
 		제1열람실: {
 			Name:     "제 1 열람실 (3층)",
 			PostData: share.ToBytes("sloc_code=SJU&group_code=0&reading_code=04"),
@@ -105,7 +106,7 @@ func update() {
 
 	var w sync.WaitGroup
 	if updateTotal(now) {
-		for _, s := range seat {
+		for _, s := range roomMap {
 			w.Add(1)
 			go s.update(&w, now)
 		}
@@ -142,9 +143,24 @@ func updateTotal(now time.Time) bool {
 		return false
 	}
 
+	sr := skill.SkillResponse{
+		Version: "2.0",
+		Template: skill.SkillTemplate{
+			Outputs: []skill.Component{
+				{
+					ListCard: &skill.ListCard{
+						Header: skill.ListItemHeader{
+							Title: "열람실 좌석 정보",
+						},
+					},
+				},
+			},
+		},
+	}
+
 	doc.Find("div.facility_box_whole > div").Each(
 		func(index int, s *goquery.Selection) {
-			var d *data
+			var d *roomData
 			var k int
 
 			ff := strings.TrimSpace(s.Find("div.facility_box_head").Text())
@@ -162,7 +178,7 @@ func updateTotal(now time.Time) bool {
 			default:
 				return
 			}
-			d = seat[k]
+			d = roomMap[k]
 
 			/**
 			이용 가능 : 200 / 210
@@ -184,7 +200,7 @@ func updateTotal(now time.Time) bool {
 				d.enabled = false
 
 				msg := strings.TrimSpace(disabled.Text())
-				fmt.Fprintln(sb, msg)
+				fmt.Fprint(sb, msg)
 
 				d.makeTemplate(now, msg)
 			} else {
@@ -192,43 +208,35 @@ func updateTotal(now time.Time) bool {
 				seatPossible := s.Find("span.facility_box_seat_possiblenum").Text()
 				seatWhole := s.Find("span.facility_box_seat_wholenum").Text()
 				fmt.Fprintf(sb, "이용 가능 : %s / %s", seatPossible, seatWhole)
-				fmt.Fprintln(sb)
 			}
-
-			fmt.Fprintln(sb)
-			fmt.Fprintln(sb, share.TimeFormatKr.Replace(now.Format("2006년 1월 2일 Mon")))
-			fmt.Fprint(sb, share.TimeFormatKr.Replace(now.Format("pm 3시 4분 기준")))
-
-			// Skill Response 생성
-
-			sr := skill.SkillResponse{
-				Version: "2.0",
-				Template: skill.SkillTemplate{
-					Outputs: []skill.Component{
-						{
-							BasicCard: &skill.BasicCard{
-								Title:       d.Name,
-								Description: share.ToString(sb.Bytes()),
-							},
-						},
-					},
-					QuickReplies: baseReplies,
-				},
-			}
-
-			if d.enabled {
-				sr.Template.Outputs[0].BasicCard.Buttons = []skill.Button{
-					{
-						Label:      "좌석 보기",
-						Action:     "webLink",
-						WebLinkUrl: d.WebUrl,
-					},
-				}
-			}
-
-			d.skillData.Update(&sr)
 		},
 	)
+
+	for _, i := range roomIndex {
+		d := roomMap[i]
+		if d.enabled {
+			sr.Template.Outputs[0].ListCard.Items = append(
+				sr.Template.Outputs[0].ListCard.Items,
+				skill.ListItemItems{
+					Title:       d.Name,
+					Description: share.ToString(d.textBuffer.Bytes()),
+					Link: skill.Link{
+						Web: d.WebUrl,
+					},
+				},
+			)
+		} else {
+			sr.Template.Outputs[0].ListCard.Items = append(
+				sr.Template.Outputs[0].ListCard.Items,
+				skill.ListItemItems{
+					Title:       d.Name,
+					Description: share.ToString(d.textBuffer.Bytes()),
+				},
+			)
+		}
+	}
+
+	skillData.Update(&sr)
 
 	return true
 }
@@ -320,11 +328,11 @@ func updateTotalLogin() bool {
 	return true
 }
 
-func (m *data) update(w *sync.WaitGroup, now time.Time) {
+func (m *roomData) update(w *sync.WaitGroup, now time.Time) {
 	defer w.Done()
 
 	m.once.Do(func() {
-		m.seat = make(map[int]templateDataSeat, 300)
+		m.seat = make(map[int]SeatState, 300)
 	})
 
 	req, _ := http.NewRequest("POST", "https://library.sangji.ac.kr/reading_seat_map.mir", bytes.NewReader(m.PostData))
@@ -363,7 +371,7 @@ func (m *data) update(w *sync.WaitGroup, now time.Time) {
 			continue
 		}
 
-		m.seat[seatNum] = templateDataSeat{
+		m.seat[seatNum] = SeatState{
 			SeatNum: seatNumStr,
 		}
 	}
@@ -376,7 +384,7 @@ func (m *data) update(w *sync.WaitGroup, now time.Time) {
 			continue
 		}
 
-		m.seat[seatNum] = templateDataSeat{
+		m.seat[seatNum] = SeatState{
 			SeatNum: seatNumStr,
 			Using:   true,
 		}
@@ -385,14 +393,14 @@ func (m *data) update(w *sync.WaitGroup, now time.Time) {
 	m.makeTemplate(now, "")
 }
 
-func (d *data) makeTemplate(now time.Time, disabledMessage string) {
+func (d *roomData) makeTemplate(now time.Time, disabledMessage string) {
 	type templateData struct {
 		Name      string // 열람실 이름
 		UpdatedAt string // 업데이트 기준일
 
 		DisabledMessage string // 에러용 메시지
 
-		Seat map[int]templateDataSeat
+		Seat map[int]SeatState
 	}
 
 	td := templateData{
