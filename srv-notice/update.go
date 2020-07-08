@@ -188,11 +188,7 @@ func (n *noticeInfo) update(w *sync.WaitGroup, total bool) {
 						postedAt: postedAt,
 					},
 				)
-				if len(n.noticeList) == 5 {
-					return false
-				}
-
-				return true
+				return len(n.noticeList) < 5
 			},
 		)
 	}

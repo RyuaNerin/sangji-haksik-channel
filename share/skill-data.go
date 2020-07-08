@@ -14,8 +14,6 @@ import (
 type SkillData struct {
 	hash []byte
 
-	skill skill.SkillResponse
-
 	lock       sync.RWMutex
 	data       []byte
 	dataBuffer bytes.Buffer

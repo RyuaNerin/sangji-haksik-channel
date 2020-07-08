@@ -58,8 +58,6 @@ func fiddlerTransport(rt http.RoundTripper) http.RoundTripper {
 	return rt
 }
 
-var loginBufferPool bytes.Buffer
-
 func Login() bool {
 	// VisitPage
 	// https://www.sangji.ac.kr/prog/login/actionSangjiLogin.do

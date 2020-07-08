@@ -48,8 +48,6 @@ type roomData struct {
 	webETag       string
 
 	webUpdateBuffer bytes.Buffer // 업데이트할 떄 HTML 메모리에 읽을 때 사용할 버퍼
-
-	updating int32
 }
 
 type SeatState struct {

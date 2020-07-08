@@ -2,7 +2,6 @@ package srvmenu
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"hash/fnv"
 	"html"
@@ -23,9 +22,7 @@ type data struct {
 	Url  string
 
 	// 월 ~ 금
-	dayLock sync.RWMutex
-	day     [5]int
-	menu    [5]share.SkillData
+	menu [5]share.SkillData
 
 	// 일일 시간표 텍스트 생성에 사용될 버퍼
 	menuStringBuffer bytes.Buffer
@@ -145,7 +142,7 @@ func (d *data) update(w *sync.WaitGroup, bgnde time.Time, postData []byte) {
 		case "C": // 저녁
 			index = 2
 		default:
-			sentry.CaptureException(errors.New(fmt.Sprintf("Unexpected Value\n%+v", responseJson)))
+			sentry.CaptureException(fmt.Errorf("Unexpected Value\n%+v", responseJson))
 			return
 		}
 
