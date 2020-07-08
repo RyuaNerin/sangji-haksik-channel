@@ -31,10 +31,10 @@ func (sd *SkillData) CheckHash(h []byte) (changed bool) {
 		return false
 	}
 
-	if len(sd.data) != len(h) {
-		sd.data = make([]byte, len(h))
+	if len(sd.hash) != len(h) {
+		sd.hash = make([]byte, len(h))
 	}
-	copy(sd.data, h)
+	copy(sd.hash, h)
 	return true
 }
 
@@ -66,7 +66,7 @@ func (sd *SkillData) Update(sr *skill.SkillResponse) (err error) {
 	sd.data = nil
 
 	sd.dataBuffer.Reset()
-	io.Copy(&sd.dataBuffer, &sd.dataBufferTemp)
+	io.Copy(&sd.dataBuffer, bytes.NewReader(sd.dataBufferTemp.Bytes()))
 
 	sd.data = sd.dataBuffer.Bytes()
 

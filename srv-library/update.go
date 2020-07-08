@@ -8,6 +8,7 @@ import (
 	"html/template"
 	"io"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -99,6 +100,17 @@ var (
 	}
 
 	tg = template.Must(template.ParseGlob("srv-library/template/*.tmpl.htm"))
+
+	client = http.Client{
+		Transport: http.DefaultTransport,
+		Jar: func() *cookiejar.Jar {
+			j, _ := cookiejar.New(nil)
+			return j
+		}(),
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
 )
 
 func init() {
@@ -134,7 +146,7 @@ func updateTotal(now time.Time) bool {
 		"User-Agent": []string{share.UserAgent},
 	}
 
-	res, err := share.Client.Do(req)
+	res, err := client.Do(req)
 	if err != nil {
 		sentry.CaptureException(err)
 		return false
@@ -251,7 +263,7 @@ func updateTotalIsLogined() bool {
 		"User-Agent": []string{share.UserAgent},
 	}
 
-	res, err := share.Client.Do(req)
+	res, err := client.Do(req)
 	if err != nil {
 		sentry.CaptureException(err)
 		return false
@@ -262,7 +274,7 @@ func updateTotalIsLogined() bool {
 }
 
 func updateTotalLogin() bool {
-	if !share.Login() {
+	if !share.Login(&client, share.Config.Id, share.Config.Pw) {
 		return false
 	}
 
@@ -273,7 +285,7 @@ func updateTotalLogin() bool {
 		"User-Agent": []string{share.UserAgent},
 	}
 
-	res, err := share.Client.Do(req)
+	res, err := client.Do(req)
 	if err != nil {
 		sentry.CaptureException(err)
 		return false
@@ -322,7 +334,7 @@ func updateTotalLogin() bool {
 		"Referer":      []string{"https://library.sangji.ac.kr/"},
 	}
 
-	res, err = share.Client.Do(req)
+	res, err = client.Do(req)
 	if err != nil {
 		sentry.CaptureException(err)
 		return false
@@ -346,7 +358,7 @@ func (m *roomData) update(w *sync.WaitGroup, now time.Time) {
 		"Referer":      []string{"https://library.sangji.ac.kr/reading_seat_map.mir"},
 	}
 
-	res, err := share.Client.Do(req)
+	res, err := client.Do(req)
 	if err != nil {
 		sentry.CaptureException(err)
 		return

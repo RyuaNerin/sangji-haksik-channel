@@ -20,6 +20,8 @@ import (
 )
 
 type noticeInfo struct {
+	once sync.Once
+
 	Name    string
 	Url     string
 	UrlView string
@@ -86,11 +88,16 @@ var regexArticleId = regexp.MustCompile(`fn_search_detail\('([^']+)'\)`)
 func (n *noticeInfo) update(w *sync.WaitGroup, total bool) {
 	defer w.Done()
 
+	n.once.Do(func() {
+		n.noticeList = make([]noticeArticleInfo, 5)
+	})
+
 	h := fnv.New64()
 	if total {
-		for _, ni := range notice {
-			h.Write(ni.skillData.GetHash())
-		}
+		h.Write(notice[일반공지].skillData.GetHash())
+		h.Write(notice[학사공지].skillData.GetHash())
+		h.Write(notice[장학공지].skillData.GetHash())
+		h.Write(notice[등록공지].skillData.GetHash())
 
 		if !n.skillData.CheckHash(h.Sum(nil)) {
 			return
@@ -116,11 +123,15 @@ func (n *noticeInfo) update(w *sync.WaitGroup, total bool) {
 			n.noticeList = append(n.noticeList, noticeList[i])
 		}
 	} else {
+		if n.Url == "" {
+			return
+		}
+
 		req, _ := http.NewRequest("GET", n.Url, nil)
 		req.Header = http.Header{
 			"User-Agent": []string{share.UserAgent},
 		}
-		res, err := share.Client.Do(req)
+		res, err := http.DefaultClient.Do(req)
 		if err != nil {
 			sentry.CaptureException(err)
 			return

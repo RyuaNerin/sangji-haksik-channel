@@ -169,7 +169,7 @@ func (si *stationInfo) update(w *sync.WaitGroup) {
 		"Content-Type": {"application/x-www-form-urlencoded; charset=UTF-8"},
 	}
 
-	res, err := share.Client.Do(req)
+	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		sentry.CaptureException(err)
 		return
