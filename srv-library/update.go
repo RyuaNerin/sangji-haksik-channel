@@ -23,8 +23,10 @@ import (
 )
 
 var (
-	regExctractSeatNumber = regexp.MustCompile(`reading_select_seat\('[^']+','(\d+)'`)
-	regExtractSeatUsing   = regexp.MustCompile(`var\s+tbl_seat_id\s+=\s+'\d+\D(\d+)'`)
+	regExctractSeatNumber  = regexp.MustCompile(`reading_select_seat\(\s*["'][^']+["']\s*,\s*["'](\d+)["']\s*(:?,\s*([^,]+?)\s*,\s*([^,]+?)\s*)?\)`)
+	regExtractSeatUsing    = regexp.MustCompile(`var\s+tbl_seat_id\s*=\s*["']\d+\D(\d+)["']`)
+	regExtractSeatDisabled = regexp.MustCompile(`remove_onclick_attr\(\s*['"]\d+\D(\d+)['"]\s*\)`)
+	regY                   = regexp.MustCompile(`['"]Y['"]`)
 )
 
 type roomData struct {
@@ -47,12 +49,17 @@ type roomData struct {
 	webBodyBuffer bytes.Buffer // 웹뷰 버퍼
 	webETag       string
 
-	webUpdateBuffer bytes.Buffer // 업데이트할 떄 HTML 메모리에 읽을 때 사용할 버퍼
+	responseHash      uint64
+	reponseBodyBuffer bytes.Buffer // 업데이트할 떄 HTML 메모리에 읽을 때 사용할 버퍼
 }
 
 type SeatState struct {
-	SeatNum string
-	Using   bool
+	SeatNum    string
+	Disabled   bool
+	NoteBook   bool
+	WheelChair bool
+
+	Using bool
 }
 
 var (
@@ -346,19 +353,21 @@ func (m *roomData) update(w *sync.WaitGroup, now time.Time) {
 	}
 	defer res.Body.Close()
 
-	m.webUpdateBuffer.Reset()
-	_, err = io.Copy(&m.webUpdateBuffer, res.Body)
+	h := fnv.New64()
+
+	m.reponseBodyBuffer.Reset()
+	_, err = io.Copy(io.MultiWriter(&m.reponseBodyBuffer, h), res.Body)
 	if err != nil && err != io.EOF {
 		sentry.CaptureException(err)
 		return
 	}
 
-	body := share.ToString(m.webUpdateBuffer.Bytes())
-
-	// 비우기
-	for k := range m.seat {
-		delete(m.seat, k)
+	if m.responseHash == h.Sum64() {
+		m.makeTemplate(now, "")
+		return
 	}
+
+	body := share.ToString(m.reponseBodyBuffer.Bytes())
 
 	// 좌석 정보 읽는 부분
 	for _, match := range regExctractSeatNumber.FindAllStringSubmatch(body, -1) {
@@ -368,9 +377,16 @@ func (m *roomData) update(w *sync.WaitGroup, now time.Time) {
 			continue
 		}
 
-		m.seat[seatNum] = SeatState{
+		ss := SeatState{
 			SeatNum: seatNumStr,
 		}
+
+		if len(match) > 2 {
+			ss.WheelChair = regY.MatchString(match[2])
+			ss.NoteBook = regY.MatchString(match[3])
+		}
+
+		m.seat[seatNum] = ss
 	}
 
 	// 사용중인 좌석 체크하는 부분
@@ -381,9 +397,25 @@ func (m *roomData) update(w *sync.WaitGroup, now time.Time) {
 			continue
 		}
 
-		m.seat[seatNum] = SeatState{
-			SeatNum: seatNumStr,
-			Using:   true,
+		ss, ok := m.seat[seatNum]
+		if ok {
+			ss.Using = true
+			m.seat[seatNum] = ss
+		}
+	}
+
+	// 비활성화 된 좌석
+	for _, match := range regExtractSeatDisabled.FindAllStringSubmatch(body, -1) {
+		seatNumStr := match[1]
+		seatNum, err := strconv.Atoi(seatNumStr)
+		if err != nil {
+			continue
+		}
+
+		ss, ok := m.seat[seatNum]
+		if ok {
+			ss.Disabled = true
+			m.seat[seatNum] = ss
 		}
 	}
 

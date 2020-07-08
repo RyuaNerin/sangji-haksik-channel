@@ -1,5 +1,21 @@
-<span class="seat_num">{{ .SeatNum }}</span>
+{{ if or .NoteBook .WheelChair }}
+<ul>
+    {{ if .WheelChair }}
+    <li><span class="seat_type_6"><i class="fa fa-wheelchair" aria-hidden="true"></i></span></li>
+    {{ end }}
+
+    {{ if .NoteBook }}
+    <li><span class="seat_type_6"><i class="fa fa-laptop" aria-hidden="true"></i></span></li>
+    {{ end }}
+</ul>
+{{ end }}
 
 {{ if .Using }}
 <span class="seat_type_using"></span>
 {{ end }}
+
+{{ if .Disabled }}
+<span class="seat_type_none"></span>
+{{ end }}
+
+<span class="seat_num">{{ .SeatNum }}</span>
