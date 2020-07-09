@@ -11,24 +11,24 @@ import (
 var (
 	baseReplies = []skill.QuickReply{
 		{
-			Label:       "학→터",
-			Action:      "message",
-			MessageText: "학→터",
-		},
-		{
 			Label:       "터→학",
 			Action:      "message",
 			MessageText: "터→학",
 		},
 		{
-			Label:       "학→원",
+			Label:       "학→터",
 			Action:      "message",
-			MessageText: "학→원",
+			MessageText: "학→터",
 		},
 		{
 			Label:       "원→학",
 			Action:      "message",
 			MessageText: "원→학",
+		},
+		{
+			Label:       "학→원",
+			Action:      "message",
+			MessageText: "학→원",
 		},
 	}
 
