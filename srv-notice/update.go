@@ -41,25 +41,25 @@ type noticeArticleInfo struct {
 var (
 	notice = map[int]*noticeInfo{
 		공지사항: {
-			Name: "공지사항",
+			Name: "공지사항 (최근 4주, 최대 15개)",
 		},
 		일반공지: {
-			Name:    "일반공지",
+			Name:    "일반공지 (최근 4주, 최대 5개)",
 			Url:     "https://www.sangji.ac.kr/prog/bbsArticle/BBSMSTR_000000000031/list.do",
 			UrlView: "https://www.sangji.ac.kr/prog/bbsArticle/BBSMSTR_000000000031/view.do?nttId=%s",
 		},
 		학사공지: {
-			Name:    "학사공지",
+			Name:    "학사공지 (최근 4주, 최대 5개)",
 			Url:     "https://www.sangji.ac.kr/prog/bbsArticle/BBSMSTR_000000000041/list.do",
 			UrlView: "https://www.sangji.ac.kr/prog/bbsArticle/BBSMSTR_000000000041/view.do?nttId=%s",
 		},
 		장학공지: {
-			Name:    "장학공지",
+			Name:    "장학공지 (최근 4주, 최대 5개)",
 			Url:     "https://www.sangji.ac.kr/prog/bbsArticle/BBSMSTR_000000000042/list.do",
 			UrlView: "https://www.sangji.ac.kr/prog/bbsArticle/BBSMSTR_000000000042/view.do?nttId=%s",
 		},
 		등록공지: {
-			Name:    "등록공지",
+			Name:    "등록공지 (최근 4주, 최대 5개)",
 			Url:     "https://www.sangji.ac.kr/prog/bbsArticle/BBSMSTR_000000000052/list.do",
 			UrlView: "https://www.sangji.ac.kr/prog/bbsArticle/BBSMSTR_000000000052/view.do?nttId=%s",
 		},
@@ -114,12 +114,12 @@ func (n *noticeInfo) update(w *sync.WaitGroup, total bool) {
 		sort.Slice(
 			noticeList,
 			func(i, k int) bool {
-				return noticeList[i].id > noticeList[k].id
+				return noticeList[i].id < noticeList[k].id
 			},
 		)
 
 		n.noticeList = n.noticeList[:0]
-		for i := 0; i < 5 && i < len(noticeList); i++ {
+		for i := 0; i < 15 && i < len(noticeList); i++ {
 			n.noticeList = append(n.noticeList, noticeList[i])
 		}
 	} else {
@@ -147,6 +147,8 @@ func (n *noticeInfo) update(w *sync.WaitGroup, total bool) {
 		if !n.skillData.CheckHash(h.Sum(nil)) {
 			return
 		}
+
+		since := time.Now().Add(-share.Config.NoticeRange)
 
 		n.noticeList = n.noticeList[:0]
 		doc.Find("table.board_list tr").EachWithBreak(
@@ -180,8 +182,8 @@ func (n *noticeInfo) update(w *sync.WaitGroup, total bool) {
 				td.Each(
 					func(_ int, ss *goquery.Selection) {
 						text := html.UnescapeString(strings.TrimSpace(ss.Text()))
-						_, err := time.Parse("2006-01-02", text)
-						if err == nil {
+						t, err := time.Parse("2006-01-02", text)
+						if err == nil && t.After(since) {
 							postedAt = text
 						}
 					},
@@ -204,35 +206,48 @@ func (n *noticeInfo) update(w *sync.WaitGroup, total bool) {
 		)
 	}
 
+	sort.Slice(
+		n.noticeList,
+		func(i, k int) bool {
+			return n.noticeList[i].id < n.noticeList[k].id
+		},
+	)
+
 	s := skill.SkillResponse{
 		Version: "2.0",
 		Template: skill.SkillTemplate{
-			Outputs: []skill.Component{
-				{
-					ListCard: &skill.ListCard{
-						Header: skill.ListItemHeader{
-							Title: n.Name,
-							Link: skill.Link{
-								Web: n.Url,
-							},
-						},
-						Items: make([]skill.ListItemItems, 0, 5),
-					},
-				},
-			},
+			Outputs:      make([]skill.Component, 0, 3),
 			QuickReplies: baseReplies,
 		},
 	}
 
-	s.Template.Outputs[0].ListCard.Items = s.Template.Outputs[0].ListCard.Items[:0]
-	for _, ni := range n.noticeList {
-		s.Template.Outputs[0].ListCard.Items = append(
-			s.Template.Outputs[0].ListCard.Items,
-			skill.ListItemItems{
-				Title:       ni.title,
-				Description: ni.postedAt,
-				Link: skill.Link{
-					Web: ni.url,
+	for i := 0; i < len(n.noticeList); i += 5 {
+		items := make([]skill.ListItemItems, 0, 5)
+
+		for k := i; k < i+5 && k < len(n.noticeList); k++ {
+			items = append(
+				items,
+				skill.ListItemItems{
+					Title:       n.noticeList[k].title,
+					Description: n.noticeList[k].postedAt,
+					Link: skill.Link{
+						Web: n.noticeList[k].url,
+					},
+				},
+			)
+		}
+
+		s.Template.Outputs = append(
+			s.Template.Outputs,
+			skill.Component{
+				ListCard: &skill.ListCard{
+					Header: skill.ListItemHeader{
+						Title: n.Name,
+						Link: skill.Link{
+							Web: n.Url,
+						},
+					},
+					Items: items,
 				},
 			},
 		)
