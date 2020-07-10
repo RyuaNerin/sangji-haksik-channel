@@ -4,5 +4,8 @@
     },
     "[css]": {
         "editor.formatOnSave": true,
+    },
+    "[python]": {
+        "editor.formatOnSave": true,
     }
 }
