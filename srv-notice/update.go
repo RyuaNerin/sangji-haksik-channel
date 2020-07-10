@@ -19,12 +19,20 @@ import (
 	"github.com/getsentry/sentry-go"
 )
 
+const (
+	noticeTypeWeb = iota
+	noticeTypeLibrary
+)
+
 type noticeInfo struct {
 	once sync.Once
+
+	Type int
 
 	Name    string
 	Url     string
 	UrlView string
+	Prefix  string // 전체공지에서 제목 앞에 붙여줄 내용
 
 	skillData share.SkillData
 
@@ -32,10 +40,11 @@ type noticeInfo struct {
 }
 
 type noticeArticleInfo struct {
-	title    string
-	postedAt string
-	id       string
-	url      string
+	title       string
+	postedAtStr string
+	postedAt    time.Time
+	id          string
+	url         string
 }
 
 var (
@@ -44,24 +53,39 @@ var (
 			Name: "공지사항 (최근 4주, 최대 15개)",
 		},
 		일반공지: {
+			Type:    noticeTypeWeb,
 			Name:    "일반공지 (최근 4주, 최대 5개)",
 			Url:     "https://www.sangji.ac.kr/prog/bbsArticle/BBSMSTR_000000000031/list.do",
 			UrlView: "https://www.sangji.ac.kr/prog/bbsArticle/BBSMSTR_000000000031/view.do?nttId=%s",
+			Prefix:  "[일반] ",
 		},
 		학사공지: {
+			Type:    noticeTypeWeb,
 			Name:    "학사공지 (최근 4주, 최대 5개)",
 			Url:     "https://www.sangji.ac.kr/prog/bbsArticle/BBSMSTR_000000000041/list.do",
 			UrlView: "https://www.sangji.ac.kr/prog/bbsArticle/BBSMSTR_000000000041/view.do?nttId=%s",
+			Prefix:  "[학사] ",
 		},
 		장학공지: {
+			Type:    noticeTypeWeb,
 			Name:    "장학공지 (최근 4주, 최대 5개)",
 			Url:     "https://www.sangji.ac.kr/prog/bbsArticle/BBSMSTR_000000000042/list.do",
 			UrlView: "https://www.sangji.ac.kr/prog/bbsArticle/BBSMSTR_000000000042/view.do?nttId=%s",
+			Prefix:  "[장학] ",
 		},
 		등록공지: {
+			Type:    noticeTypeWeb,
 			Name:    "등록공지 (최근 4주, 최대 5개)",
 			Url:     "https://www.sangji.ac.kr/prog/bbsArticle/BBSMSTR_000000000052/list.do",
 			UrlView: "https://www.sangji.ac.kr/prog/bbsArticle/BBSMSTR_000000000052/view.do?nttId=%s",
+			Prefix:  "[등록] ",
+		},
+		학술공지: {
+			Type:    noticeTypeLibrary,
+			Name:    "학술공지 (최근 4주, 최대 5개)",
+			Url:     "https://library.sangji.ac.kr/sb/default_notice_list.mir",
+			UrlView: "https://library.sangji.ac.kr/sb/default_notice_view.mir?sb_no=%s",
+			Prefix:  "[학술] ",
 		},
 	}
 )
@@ -83,10 +107,39 @@ func update() {
 	notice[공지사항].update(&w, true)
 }
 
-var regexArticleId = regexp.MustCompile(`fn_search_detail\('([^']+)'\)`)
+var searchOptionMap = map[int]struct {
+	FindTr         string
+	TitleTd        int
+	PassAttribute  string
+	NodeArticleId  func(tr, td *goquery.Selection) *goquery.Selection
+	ParseArticleId *regexp.Regexp
+}{
+	noticeTypeWeb: {
+		FindTr:         "table.board_list tbody tr",
+		PassAttribute:  "notice",
+		TitleTd:        1,
+		NodeArticleId:  func(tr, td *goquery.Selection) *goquery.Selection { return td },
+		ParseArticleId: regexp.MustCompile(`fn_search_detail\('([^']+)'`),
+	},
+	noticeTypeLibrary: {
+		FindTr:         "table tbody tr",
+		PassAttribute:  "info",
+		TitleTd:        0,
+		NodeArticleId:  func(tr, td *goquery.Selection) *goquery.Selection { return tr },
+		ParseArticleId: regexp.MustCompile(`go_view\('([^']+)'`),
+	},
+}
 
 func (n *noticeInfo) update(w *sync.WaitGroup, total bool) {
 	defer w.Done()
+
+	sortFunc := func(i, k noticeArticleInfo) bool {
+		if i.postedAt.Equal(k.postedAt) {
+			return i.id > k.id
+		} else {
+			return i.postedAt.Before(k.postedAt)
+		}
+	}
 
 	n.once.Do(func() {
 		n.noticeList = make([]noticeArticleInfo, 5)
@@ -98,25 +151,25 @@ func (n *noticeInfo) update(w *sync.WaitGroup, total bool) {
 		h.Write(notice[학사공지].skillData.GetHash())
 		h.Write(notice[장학공지].skillData.GetHash())
 		h.Write(notice[등록공지].skillData.GetHash())
+		h.Write(notice[학술공지].skillData.GetHash())
 
 		if !n.skillData.CheckHash(h.Sum(nil)) {
 			return
 		}
 
-		var noticeList []noticeArticleInfo
+		noticeList := make([]noticeArticleInfo, 0, 15)
 
 		for i, ni := range notice {
 			if i == 공지사항 {
 				continue
 			}
-			noticeList = append(noticeList, ni.noticeList...)
+
+			for _, nl := range ni.noticeList {
+				nl.title = ni.Prefix + nl.title
+				noticeList = append(noticeList, nl)
+			}
 		}
-		sort.Slice(
-			noticeList,
-			func(i, k int) bool {
-				return noticeList[i].id < noticeList[k].id
-			},
-		)
+		sort.Slice(noticeList, func(i, k int) bool { return sortFunc(noticeList[i], noticeList[k]) })
 
 		n.noticeList = n.noticeList[:0]
 		for i := 0; i < 15 && i < len(noticeList); i++ {
@@ -150,16 +203,18 @@ func (n *noticeInfo) update(w *sync.WaitGroup, total bool) {
 
 		since := time.Now().Add(-share.Config.NoticeRange)
 
+		searchOption := searchOptionMap[n.Type]
+
 		n.noticeList = n.noticeList[:0]
-		doc.Find("table.board_list tr").EachWithBreak(
-			func(index int, s *goquery.Selection) bool {
-				if s.HasClass("notice") {
+		doc.Find(searchOption.FindTr).EachWithBreak(
+			func(index int, tr *goquery.Selection) bool {
+				if tr.HasClass(searchOption.PassAttribute) {
 					return true
 				}
 
-				td := s.Find("td")
+				td := tr.Find("td")
 
-				titleTd := td.Eq(1).Find("a")
+				titleTd := td.Eq(searchOption.TitleTd).Find("a")
 
 				// 타이틀 파싱
 				title := html.UnescapeString(strings.TrimSpace(titleTd.Text()))
@@ -168,37 +223,44 @@ func (n *noticeInfo) update(w *sync.WaitGroup, total bool) {
 				}
 
 				// 게시물 아이디 파싱
-				onClick, ok := titleTd.Attr("onclick")
+				onClick, ok := searchOption.NodeArticleId(tr, titleTd).Attr("onclick")
 				if !ok {
 					return true
 				}
-				id := regexArticleId.FindStringSubmatch(onClick)
-				if id == nil {
+				articleIdMatches := searchOption.ParseArticleId.FindStringSubmatch(onClick)
+				if articleIdMatches == nil {
 					return true
 				}
+				articleId := articleIdMatches[1]
 
 				// 작성일
-				var postedAt string
-				td.Each(
-					func(_ int, ss *goquery.Selection) {
+				var postedAt time.Time
+				var postedAtStr string
+				td.EachWithBreak(
+					func(_ int, ss *goquery.Selection) bool {
 						text := html.UnescapeString(strings.TrimSpace(ss.Text()))
 						t, err := time.Parse("2006-01-02", text)
 						if err == nil && t.After(since) {
-							postedAt = text
+							postedAt = t
+							postedAtStr = text
+							return false
 						}
+
+						return true
 					},
 				)
-				if postedAt == "" {
+				if postedAtStr == "" {
 					return true
 				}
 
 				n.noticeList = append(
 					n.noticeList,
 					noticeArticleInfo{
-						title:    title,
-						url:      fmt.Sprintf(n.UrlView, id[1]),
-						id:       id[1],
-						postedAt: postedAt,
+						title:       title,
+						url:         fmt.Sprintf(n.UrlView, articleId),
+						id:          articleId,
+						postedAt:    postedAt,
+						postedAtStr: postedAtStr,
 					},
 				)
 				return len(n.noticeList) < 5
@@ -206,12 +268,7 @@ func (n *noticeInfo) update(w *sync.WaitGroup, total bool) {
 		)
 	}
 
-	sort.Slice(
-		n.noticeList,
-		func(i, k int) bool {
-			return n.noticeList[i].id < n.noticeList[k].id
-		},
-	)
+	sort.Slice(n.noticeList, func(i, k int) bool { return sortFunc(n.noticeList[i], n.noticeList[k]) })
 
 	s := skill.SkillResponse{
 		Version: "2.0",
@@ -229,7 +286,7 @@ func (n *noticeInfo) update(w *sync.WaitGroup, total bool) {
 				items,
 				skill.ListItemItems{
 					Title:       n.noticeList[k].title,
-					Description: n.noticeList[k].postedAt,
+					Description: n.noticeList[k].postedAtStr,
 					Link: skill.Link{
 						Web: n.noticeList[k].url,
 					},

@@ -35,6 +35,11 @@ var (
 			Action:      "message",
 			MessageText: "등록공지",
 		},
+		{
+			Label:       "학술",
+			Action:      "message",
+			MessageText: "학술공지",
+		},
 	}
 
 	responseError = share.NewSkillDataWithErrorMessage(
