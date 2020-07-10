@@ -243,10 +243,10 @@ func (n *noticeInfo) update(w *sync.WaitGroup, total bool) {
 						if err == nil && t.After(since) {
 							postedAt = t
 							postedAtStr = text
-							return false
+							return true
 						}
 
-						return true
+						return false
 					},
 				)
 				if postedAtStr == "" {
