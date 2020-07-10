@@ -19,6 +19,8 @@ import (
 	"github.com/getsentry/sentry-go"
 )
 
+const NoticeRange = 28 * 24 * time.Hour
+
 const (
 	noticeTypeWeb = iota
 	noticeTypeLibrary
@@ -201,7 +203,7 @@ func (n *noticeInfo) update(w *sync.WaitGroup, total bool) {
 			return
 		}
 
-		since := time.Now().Add(-share.Config.NoticeRange)
+		since := time.Now().Add(-NoticeRange)
 
 		searchOption := searchOptionMap[n.Type]
 
