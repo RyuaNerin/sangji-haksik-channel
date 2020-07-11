@@ -50,6 +50,7 @@ func skillHandler(ctx *skill.Context) {
 	weekday := now.Weekday()
 	if weekday == time.Sunday || weekday == time.Saturday {
 		responseNoWeekend.Serve(ctx)
+		return
 	}
 
 	key := 0
