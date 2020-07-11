@@ -159,21 +159,6 @@ func updateTotal(now time.Time) bool {
 		return false
 	}
 
-	sr := skill.SkillResponse{
-		Version: "2.0",
-		Template: skill.SkillTemplate{
-			Outputs: []skill.Component{
-				{
-					ListCard: &skill.ListCard{
-						Header: skill.ListItemHeader{
-							Title: "열람실 좌석 정보",
-						},
-					},
-				},
-			},
-		},
-	}
-
 	doc.Find("div.facility_box_whole > div").Each(
 		func(index int, s *goquery.Selection) {
 			var d *roomData
@@ -228,28 +213,40 @@ func updateTotal(now time.Time) bool {
 		},
 	)
 
+	listCardItems := make([]skill.ListItemItems, 0, 5)
 	for _, i := range roomIndex {
 		d := roomMap[i]
+
+		item := skill.ListItemItems{
+			Title:       d.Name,
+			Description: share.ToString(d.textBuffer.Bytes()),
+		}
 		if d.enabled {
-			sr.Template.Outputs[0].ListCard.Items = append(
-				sr.Template.Outputs[0].ListCard.Items,
-				skill.ListItemItems{
-					Title:       d.Name,
-					Description: share.ToString(d.textBuffer.Bytes()),
-					Link: skill.Link{
-						Web: d.WebUrl,
+			item.Link = skill.Link{
+				Web: d.WebUrl,
+			}
+		}
+
+		listCardItems = append(listCardItems, item)
+	}
+
+	sr := skill.SkillResponse{
+		Version: "2.0",
+		Template: skill.SkillTemplate{
+			Outputs: []skill.Component{
+				{
+					ListCard: &skill.ListCard{
+						Header: skill.ListItemHeader{
+							Title: "열람실 좌석 정보",
+							Link: skill.Link{
+								Web: "https://library.sangji.ac.kr/reading_lib_list.mir",
+							},
+						},
+						Items: listCardItems,
 					},
 				},
-			)
-		} else {
-			sr.Template.Outputs[0].ListCard.Items = append(
-				sr.Template.Outputs[0].ListCard.Items,
-				skill.ListItemItems{
-					Title:       d.Name,
-					Description: share.ToString(d.textBuffer.Bytes()),
-				},
-			)
-		}
+			},
+		},
 	}
 
 	skillData.Update(&sr)
