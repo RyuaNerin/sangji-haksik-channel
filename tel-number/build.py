@@ -6,29 +6,28 @@ import re
 with open("build.csv", "w", encoding="utf-8") as _fw:
     _fw.truncate(0)
 
+    writer = csv.writer(_fw)
+    writer.writerow(
+        [
+            "FAQ_No",
+            "Category1",
+            "Category2",
+            "Category3",
+            "Category4",
+            "Category5",
+            "Question",
+            "Answer",
+            "Landing URL",
+            "Image info (URL)",
+        ]
+    )
+
+    row_number = 0
+
     with open("department.csv", "r", encoding="utf-8") as _fr:
-        reader = csv.reader(_fr, delimiter="\t")
-        writer = csv.writer(_fw)
-
-        writer.writerow(
-            [
-                "FAQ_No",
-                "Category1",
-                "Category2",
-                "Category3",
-                "Category4",
-                "Category5",
-                "Question",
-                "Answer",
-                "Landing URL",
-                "Image info (URL)",
-            ]
-        )
-
-        row_number = 0
         keyword_dup = set()
 
-        for row in reader:
+        for row in csv.reader(_fr, delimiter="\t"):
             if row[0] == "대학":
                 continue
 
