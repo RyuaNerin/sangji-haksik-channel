@@ -31,12 +31,16 @@ var (
 )
 
 type roomData struct {
-	once sync.Once
-
 	Name     string
 	PostData []byte
 	Template string
 	WebUrl   string
+	PngUrl   string
+
+	// Png
+	Image *imageData
+
+	once sync.Once
 
 	enabled bool // false 일 때 : 운영시간 아님 혹은
 
@@ -72,30 +76,40 @@ var (
 			PostData: share.ToBytes("sloc_code=SJU&group_code=0&reading_code=04"),
 			Template: "room1.tmpl.htm",
 			WebUrl:   fmt.Sprintf("%s%s?key=%d", share.ServerUri, pathWebView, 제1열람실),
+			PngUrl:   fmt.Sprintf("%s%s?key=%d&type=png", share.ServerUri, pathWebView, 제1열람실),
+			Image:    newImageData("room1.json"),
 		},
 		제2열람실: {
 			Name:     "제 2 열람실 (5층)",
 			PostData: share.ToBytes("sloc_code=SJU&group_code=0&reading_code=05"),
 			Template: "room2.tmpl.htm",
 			WebUrl:   fmt.Sprintf("%s%s?key=%d", share.ServerUri, pathWebView, 제2열람실),
+			PngUrl:   fmt.Sprintf("%s%s?key=%d&type=png", share.ServerUri, pathWebView, 제2열람실),
+			Image:    newImageData("room2.json"),
 		},
 		제3열람실A: {
 			Name:     "제 3 열람실 A (5층)",
 			PostData: share.ToBytes("sloc_code=SJU&group_code=0&reading_code=01"),
 			Template: "room3a.tmpl.htm",
 			WebUrl:   fmt.Sprintf("%s%s?key=%d", share.ServerUri, pathWebView, 제3열람실A),
+			PngUrl:   fmt.Sprintf("%s%s?key=%d&type=png", share.ServerUri, pathWebView, 제3열람실A),
+			Image:    newImageData("room3a.json"),
 		},
 		제3열람실B: {
 			Name:     "제 3 열람실 B (5층)",
 			PostData: share.ToBytes("sloc_code=SJU&group_code=0&reading_code=07"),
 			Template: "room3b.tmpl.htm",
 			WebUrl:   fmt.Sprintf("%s%s?key=%d", share.ServerUri, pathWebView, 제3열람실B),
+			PngUrl:   fmt.Sprintf("%s%s?key=%d&type=png", share.ServerUri, pathWebView, 제3열람실B),
+			Image:    newImageData("room3b.json"),
 		},
 		그룹스터디실: {
 			Name:     "그룹스터디실(2층)",
 			PostData: share.ToBytes("sloc_code=SJU&group_code=0&reading_code=06"),
 			Template: "roomgroup.tmpl.htm",
 			WebUrl:   fmt.Sprintf("%s%s?key=%d", share.ServerUri, pathWebView, 그룹스터디실),
+			PngUrl:   fmt.Sprintf("%s%s?key=%d&type=png", share.ServerUri, pathWebView, 그룹스터디실),
+			Image:    newImageData("roomgroup.json"),
 		},
 	}
 
@@ -222,6 +236,7 @@ func updateTotal(now time.Time) bool {
 			Description: share.ToString(d.textBuffer.Bytes()),
 		}
 		if d.enabled {
+			item.ImageUrl = d.PngUrl
 			item.Link = skill.Link{
 				Web: d.WebUrl,
 			}
@@ -288,6 +303,10 @@ func updateTotalLogin() bool {
 		return false
 	}
 	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return false
+	}
 
 	doc, err := goquery.NewDocumentFromReader(share.FixEncoding(res))
 	if err != nil && err != io.EOF {
@@ -362,6 +381,10 @@ func (m *roomData) update(w *sync.WaitGroup, now time.Time) {
 	}
 	defer res.Body.Close()
 
+	if res.StatusCode != http.StatusOK {
+		return
+	}
+
 	h := fnv.New64()
 
 	m.reponseBodyBuffer.Reset()
@@ -429,6 +452,7 @@ func (m *roomData) update(w *sync.WaitGroup, now time.Time) {
 	}
 
 	m.makeTemplate(now, "")
+	m.Image.DrawImage(now, m.seat)
 }
 
 func (d *roomData) makeTemplate(now time.Time, disabledMessage string) {

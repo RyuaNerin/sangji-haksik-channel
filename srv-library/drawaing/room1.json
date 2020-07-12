@@ -1,0 +1,27 @@
+{
+    "background": "readingroom_04.png",
+    "width": 0,
+    "height": 0,
+    "seat-location": {
+        "0": {
+            "x": 0,
+            "y": 0,
+            "border-top": {
+                "color": "#d53212",
+                "thickness": 1
+            },
+            "border-left": {
+                "color": "#d53212",
+                "thickness": 1
+            },
+            "border-right": {
+                "color": "#d53212",
+                "thickness": 1
+            },
+            "border-bottom": {
+                "color": "#d53212",
+                "thickness": 1
+            }
+        }
+    }
+}

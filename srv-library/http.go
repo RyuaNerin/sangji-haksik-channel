@@ -22,6 +22,11 @@ func handleSeat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.FormValue("type") == "png" {
+		d.Image.Serve(w, r)
+		return
+	}
+
 	if d.webBody == nil {
 		header := w.Header()
 		header.Set("Content-Type", "text/plain; charset=utf-8")
