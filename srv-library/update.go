@@ -3,6 +3,7 @@ package srvlibrary
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"html/template"
@@ -113,7 +114,32 @@ var (
 		},
 	}
 
-	tg = template.Must(template.ParseGlob("srv-library/public/*.tmpl.htm"))
+	tg = template.Must(
+		template.New("").Funcs(template.FuncMap{
+			"attr": func(s interface{}) (template.HTMLAttr, error) {
+				str, ok := s.(string)
+				if !ok {
+					return template.HTMLAttr(""), errors.New("dict keys must be strings")
+				}
+				return template.HTMLAttr(str), nil
+			},
+			"dict": func(values ...interface{}) (map[string]interface{}, error) {
+				if len(values)%2 != 0 {
+					return nil, errors.New("invalid dict call")
+				}
+
+				dict := make(map[string]interface{}, len(values)/2)
+				for i := 0; i < len(values); i += 2 {
+					key, ok := values[i].(string)
+					if !ok {
+						return nil, errors.New("dict keys must be strings")
+					}
+
+					dict[key] = values[i+1]
+				}
+				return dict, nil
+			},
+		}).ParseGlob("srv-library/public/*.tmpl.htm"))
 
 	client = http.Client{
 		Transport: http.DefaultTransport,

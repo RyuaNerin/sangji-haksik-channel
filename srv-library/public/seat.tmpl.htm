@@ -1,21 +1,28 @@
-{{ if or .NoteBook .WheelChair }}
-<ul>
-    {{ if .WheelChair }}
-    <li><span class="seat_type_6"><i class="fa fa-wheelchair" aria-hidden="true"></i></span></li>
+{{ if .Data.Disabled }}
+<td style="{{ attr .Style }}" class="general_seat seat_style bacground-gray">
+{{ else }}
+<td style="{{ attr .Style }}" class="general_seat seat_style">
+{{ end }}
+
+    {{ if or .Data.NoteBook .Data.WheelChair }}
+    <ul>
+        {{ if .Data.WheelChair }}
+        <li><span class="seat_type_6"><i class="fa fa-wheelchair" aria-hidden="true"></i></span></li>
+        {{ end }}
+
+        {{ if .Data.NoteBook }}
+        <li><span class="seat_type_6"><i class="fa fa-laptop" aria-hidden="true"></i></span></li>
+        {{ end }}
+    </ul>
     {{ end }}
 
-    {{ if .NoteBook }}
-    <li><span class="seat_type_6"><i class="fa fa-laptop" aria-hidden="true"></i></span></li>
+    {{ if .Data.Using }}
+    <span class="seat_type_using"></span>
     {{ end }}
-</ul>
-{{ end }}
 
-{{ if .Using }}
-<span class="seat_type_using"></span>
-{{ end }}
+    {{ if .Data.Disabled }}
+    <span class="seat_type_none"></span>
+    {{ end }}
 
-{{ if .Disabled }}
-<span class="seat_type_none"></span>
-{{ end }}
-
-<span class="seat_num">{{ .SeatNum }}</span>
+    <span class="seat_num">{{ .Data.SeatNum }}</span>
+</td>

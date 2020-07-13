@@ -6,9 +6,7 @@
             <table id="35" style="width:40px;height:40px;table-layout:fixed;">
                 <tbody>
                     <tr>
-                        <td class="general_seat seat_style" style="border:2px solid #f5f5f5;border-top:1px solid #f5f5f5;text-align:center;">
-                            {{ template "seat.tmpl.htm" index .Seat 1 }}
-                        </td>
+                        {{ template "seat.tmpl.htm" dict "Style" "border:2px solid #f5f5f5;border-top:1px solid #f5f5f5;text-align:center;" "Data" (index .Seat 1) }}
                     </tr>
                 </tbody>
             </table>
@@ -17,9 +15,7 @@
             <table id="36" style="width:40px;height:40px;table-layout:fixed;">
                 <tbody>
                     <tr>
-                        <td class="general_seat seat_style" style="border:2px solid #f5f5f5;border-top:1px solid #f5f5f5;text-align:center;">
-                            {{ template "seat.tmpl.htm" index .Seat 2 }}
-                        </td>
+                        {{ template "seat.tmpl.htm" dict "Style" "border:2px solid #f5f5f5;border-top:1px solid #f5f5f5;text-align:center;" "Data" (index .Seat 2) }}
                     </tr>
                 </tbody>
             </table>
@@ -28,9 +24,7 @@
             <table id="37" style="width:40px;height:40px;table-layout:fixed;">
                 <tbody>
                     <tr>
-                        <td class="general_seat seat_style" style="border:2px solid #f5f5f5;border-top:1px solid #f5f5f5;text-align:center;">
-                            {{ template "seat.tmpl.htm" index .Seat 3 }}
-                        </td>
+                        {{ template "seat.tmpl.htm" dict "Style" "border:2px solid #f5f5f5;border-top:1px solid #f5f5f5;text-align:center;" "Data" (index .Seat 3) }}
                     </tr>
                 </tbody>
             </table>

@@ -10,7 +10,8 @@ type pngBufferPool struct {
 }
 
 func (p *pngBufferPool) Get() *png.EncoderBuffer {
-	return p.p.Get().(*png.EncoderBuffer)
+	pp, _ := p.p.Get().(*png.EncoderBuffer)
+	return pp
 }
 
 func (p *pngBufferPool) Put(b *png.EncoderBuffer) {

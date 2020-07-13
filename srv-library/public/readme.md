@@ -35,7 +35,7 @@
 8. Template 넣기
     |Regex|Replace|
     |-|-|
-    |`<span class="seat_num">0*(\d+)</span>`|`{{ template "seat.tmpl.htm" index .Seat $1 }}`|
+    |`<td class="general_seat seat_style" style="([^"]+)">.*?<span class="seat_num">.*?0*(\d+).*?</span>.*?</td>`|`{{ template "seat.tmpl.htm" dict "Style" "$1" "Data" \(index .Seat $2\) }}`|
     - Header : `{{ template "header.tmpl.htm" . }}`
     - Footer :`{{ template "footer.tmpl.htm" . }}`
 9. 리소스 복사 및 수정

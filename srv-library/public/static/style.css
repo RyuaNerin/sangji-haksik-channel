@@ -326,3 +326,7 @@ span.seat_type_7 {
 #explanatory_type > span {
     color: #fff;
 }
+
+.bacground-gray {
+    background: grey;
+}
