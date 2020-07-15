@@ -32,10 +32,11 @@ const (
 	seatUlSize   = 12
 	seatUlMargin = 5
 
-	seatSize               = 38
+	seatWidth              = 37
+	seatHeight             = 38
 	seatNumberMarginBottom = 3
 
-	outlineWidth = 6
+	outlineWidth = 5
 
 	locationExit       = "exit"
 	locationBackground = "background"
@@ -50,8 +51,8 @@ const (
 var (
 	imgExit = mustLoadLoage("img_exit.png")
 
-	imgDisabled = resize.Resize(seatSize, 0, mustLoadLoage("explanatory_type_line2.png"), resize.Lanczos2)
-	imgPillar   = resize.Resize(seatSize, 0, mustLoadLoage("img_pillar.png"), resize.Lanczos2)
+	imgDisabled = resize.Resize(seatWidth, seatHeight, mustLoadLoage("explanatory_type_line2.png"), resize.Lanczos2)
+	imgPillar   = resize.Resize(seatWidth, seatHeight, mustLoadLoage("img_pillar.png"), resize.Lanczos2)
 
 	imgWheelChair = resize.Resize(seatUlSize, 0, mustLoadLoage("explanatory_type_line2.png"), resize.Lanczos2)
 	imgNotebook   = resize.Resize(seatUlSize, 0, mustLoadLoage("explanatory_type_line2.png"), resize.Lanczos2)
@@ -62,7 +63,24 @@ var (
 	}
 
 	fontUpdated    = mustLoadFont("malgunbd-subset.ttf", 20)
-	fontSeatNumber = mustLoadFont("malgun-subset.ttf", 13)
+	fontSeatNumber = mustLoadFont("malgunbd-subset.ttf", 13)
+
+	imgSeat = func() image.Image {
+		img := image.NewRGBA(image.Rect(0, 0, seatWidth, seatHeight))
+
+		gc := gg.NewContextForRGBA(img)
+
+		gd := gg.NewLinearGradient(0, 0, 0, seatHeight)
+		gd.AddColorStop(0.00, color.NRGBA{R: 000, G: 000, B: 000, A: 000})
+		gd.AddColorStop(0.55, color.NRGBA{R: 164, G: 164, B: 164, A: 000})
+		gd.AddColorStop(1.00, color.NRGBA{R: 193, G: 193, B: 193, A: 166})
+
+		gc.SetFillStyle(gd)
+		gc.DrawRectangle(0, 0, seatWidth, seatHeight)
+		gc.Fill()
+
+		return img
+	}()
 )
 
 func mustLoadFont(path string, points float64) font.Face {
@@ -251,8 +269,8 @@ func (d *imageData) DrawImage(now time.Time, seatMap map[int]SeatState) {
 		d.draw.DrawRectangle(
 			float64(sd.X)-outlineWidth,
 			float64(sd.Y)-outlineWidth,
-			seatSize+outlineWidth*2,
-			seatSize+outlineWidth*2,
+			seatWidth+outlineWidth*2,
+			seatHeight+outlineWidth*2,
 		)
 		d.draw.Fill()
 	}
@@ -272,8 +290,10 @@ func (d *imageData) DrawImage(now time.Time, seatMap map[int]SeatState) {
 		} else {
 			d.draw.SetHexColor(colorSeat)
 		}
-		d.draw.DrawRectangle(float64(sd.X), float64(sd.Y), seatSize, seatSize)
+		d.draw.DrawRectangle(float64(sd.X), float64(sd.Y), seatWidth, seatHeight)
 		d.draw.Fill()
+
+		d.draw.DrawImage(imgSeat, sd.X, sd.Y)
 
 		// 왼쪽 상단에 휠체어 노트북 그리기
 		ulX := sd.X + seatUlX
@@ -288,8 +308,8 @@ func (d *imageData) DrawImage(now time.Time, seatMap map[int]SeatState) {
 		d.draw.SetColor(color.Black)
 		d.draw.DrawStringAnchored(
 			strings.TrimLeft(seat.SeatNum, "0"),
-			float64(sd.X)+float64(seatSize)/2,
-			float64(sd.Y+seatSize-seatNumberMarginBottom),
+			float64(sd.X)+float64(seatWidth)/2,
+			float64(sd.Y+seatHeight-seatNumberMarginBottom),
 			0.5,
 			0,
 		)
@@ -308,23 +328,23 @@ func (d *imageData) DrawImage(now time.Time, seatMap map[int]SeatState) {
 		drawBorder(
 			sd.BorderTop,
 			sd.X, sd.Y-1,
-			sd.X+seatSize, sd.Y-1,
+			sd.X+seatWidth, sd.Y-1,
 		)
 		drawBorder(
 			sd.BorderBottom,
-			sd.X, sd.Y+seatSize+1,
-			sd.X+seatSize, sd.Y+seatSize+1,
+			sd.X, sd.Y+seatHeight+1,
+			sd.X+seatWidth, sd.Y+seatHeight+1,
 		)
 
 		drawBorder(
 			sd.BorderLeft,
 			sd.X-1, sd.Y,
-			sd.X-1, sd.Y+seatSize,
+			sd.X-1, sd.Y+seatHeight,
 		)
 		drawBorder(
 			sd.BorderRight,
-			sd.X+seatSize+1, sd.Y,
-			sd.X+seatSize+1, sd.Y+seatSize,
+			sd.X+seatWidth+1, sd.Y,
+			sd.X+seatWidth+1, sd.Y+seatHeight,
 		)
 	}
 
