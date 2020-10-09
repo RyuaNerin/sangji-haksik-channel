@@ -311,5 +311,5 @@ func (n *noticeInfo) update(w *sync.WaitGroup, total bool) {
 		)
 	}
 
-	n.skillData.Update(&s)
+	n.skillData.Update(nil, &s)
 }

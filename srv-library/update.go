@@ -290,7 +290,7 @@ func updateTotal(now time.Time) bool {
 		},
 	}
 
-	skillData.Update(&sr)
+	skillData.Update(nil, &sr)
 
 	return true
 }

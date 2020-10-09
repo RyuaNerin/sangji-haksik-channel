@@ -2,23 +2,24 @@ package share
 
 import (
 	"bytes"
-	"io"
 	"net/http"
+	"strconv"
 	"sync"
 
 	skill "github.com/RyuaNerin/go-kakaoskill/v2"
-	"github.com/getsentry/sentry-go"
 	jsoniter "github.com/json-iterator/go"
 )
 
 type SkillData struct {
 	hash []byte
 
-	lock       sync.RWMutex
+	lock sync.RWMutex
+
 	data       []byte
 	dataBuffer bytes.Buffer
 
-	dataBufferTemp bytes.Buffer
+	text       []byte
+	textBuffer bytes.Buffer
 }
 
 func (sd *SkillData) GetHash() []byte {
@@ -44,31 +45,44 @@ func (sd *SkillData) Serve(ctx *skill.Context) bool {
 
 	if sd.data == nil {
 		return false
-	} else {
-		ctx.ResponseWriter.WriteHeader(http.StatusOK)
-		ctx.ResponseWriter.Write(sd.data)
 	}
+
+	ctx.ResponseWriter.WriteHeader(http.StatusOK)
+	ctx.ResponseWriter.Write(sd.data)
 
 	return true
 }
 
-func (sd *SkillData) Update(sr *skill.SkillResponse) (err error) {
-	sd.dataBufferTemp.Reset()
-	err = jsoniter.NewEncoder(&sd.dataBufferTemp).Encode(sr)
-	if err != nil {
-		sentry.CaptureException(err)
-		return err
+func (sd *SkillData) ServeHttp(w http.ResponseWriter, r *http.Request) bool {
+	sd.lock.RLock()
+	defer sd.lock.RUnlock()
+
+	if sd.text == nil {
+		return false
 	}
 
+	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Content-Length", strconv.Itoa(len(sd.text)))
+	w.WriteHeader(http.StatusOK)
+	w.Write(sd.text)
+
+	return true
+}
+
+func (sd *SkillData) Update(text []byte, sr *skill.SkillResponse) (err error) {
 	sd.lock.Lock()
 	defer sd.lock.Unlock()
 
 	sd.data = nil
 
 	sd.dataBuffer.Reset()
-	io.Copy(&sd.dataBuffer, bytes.NewReader(sd.dataBufferTemp.Bytes()))
+	jsoniter.NewEncoder(&sd.dataBuffer).Encode(sr)
+
+	sd.textBuffer.Reset()
+	sd.textBuffer.Write(text)
 
 	sd.data = sd.dataBuffer.Bytes()
+	sd.text = sd.textBuffer.Bytes()
 
 	return nil
 }

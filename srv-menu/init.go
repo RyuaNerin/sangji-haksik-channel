@@ -10,5 +10,7 @@ const (
 )
 
 func init() {
+
+	share.HttpMux.HandleFunc("/menu", handleHttp)
 	share.SkillMux.F("/skill/menu", skillHandler)
 }

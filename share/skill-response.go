@@ -20,7 +20,7 @@ func NewSkillDataWithErrorMessage(str string, baseReplies []skill.QuickReply) *S
 	}
 
 	d := new(SkillData)
-	err := d.Update(&v)
+	err := d.Update(ToBytes(str), &v)
 	if err != nil {
 		panic(err)
 	}

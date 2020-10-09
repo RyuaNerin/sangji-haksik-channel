@@ -327,5 +327,5 @@ func (ri *routeInfo) update(w *sync.WaitGroup) {
 		},
 	}
 
-	ri.skillData.Update(&sr)
+	ri.skillData.Update(nil, &sr)
 }

@@ -238,6 +238,6 @@ func (d *data) update(w *sync.WaitGroup, bgnde time.Time, postData []byte) {
 			},
 		}
 
-		d.menu[i].Update(&s)
+		d.menu[i].Update(sb.Bytes(), &s)
 	}
 }
