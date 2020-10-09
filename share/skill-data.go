@@ -61,7 +61,7 @@ func (sd *SkillData) ServeHttp(w http.ResponseWriter, r *http.Request) bool {
 		return false
 	}
 
-	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Content-Length", strconv.Itoa(len(sd.text)))
 	w.WriteHeader(http.StatusOK)
 	w.Write(sd.text)
