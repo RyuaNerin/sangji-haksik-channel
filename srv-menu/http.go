@@ -17,8 +17,8 @@ func handleHttp(w http.ResponseWriter, r *http.Request) {
 
 	key := 0
 
-	if keyStr := r.Form.Get("key"); keyStr != "" {
-		key, _ = strconv.Atoi(keyStr)
+	if keyStr, ok := r.URL.Query()["key"]; ok && len(keyStr) == 1 {
+		key, _ = strconv.Atoi(keyStr[0])
 	}
 
 	n, ok := menu[key]
