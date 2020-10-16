@@ -19,7 +19,10 @@ import (
 	"github.com/getsentry/sentry-go"
 )
 
-const NoticeRange = 28 * 24 * time.Hour
+const (
+	NoticeRange = 28 * 24 * time.Hour
+	NoticeCount = 5
+)
 
 const (
 	noticeTypeWeb = iota
@@ -52,7 +55,7 @@ type noticeArticleInfo struct {
 var (
 	notice = map[int]*noticeInfo{
 		공지사항: {
-			Name: "공지사항 (최근 4주, 최대 15개)",
+			Name: "공지사항 (최근 4주, 최대 5개)",
 		},
 		일반공지: {
 			Type:    noticeTypeWeb,
@@ -159,7 +162,7 @@ func (n *noticeInfo) update(w *sync.WaitGroup, total bool) {
 			return
 		}
 
-		noticeList := make([]noticeArticleInfo, 0, 15)
+		noticeList := make([]noticeArticleInfo, 0, NoticeCount)
 
 		for i, ni := range notice {
 			if i == 공지사항 {
@@ -174,7 +177,7 @@ func (n *noticeInfo) update(w *sync.WaitGroup, total bool) {
 		sort.Slice(noticeList, func(i, k int) bool { return sortFunc(noticeList[i], noticeList[k]) })
 
 		n.noticeList = n.noticeList[:0]
-		for i := 0; i < 15 && i < len(noticeList); i++ {
+		for i := 0; i < NoticeCount && i < len(noticeList); i++ {
 			n.noticeList = append(n.noticeList, noticeList[i])
 		}
 	} else {
