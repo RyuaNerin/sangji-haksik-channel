@@ -142,7 +142,7 @@ func (n *noticeInfo) update(w *sync.WaitGroup, total bool) {
 		if i.postedAt.Equal(k.postedAt) {
 			return i.id > k.id
 		} else {
-			return i.postedAt.Before(k.postedAt)
+			return i.postedAt.After(k.postedAt)
 		}
 	}
 
