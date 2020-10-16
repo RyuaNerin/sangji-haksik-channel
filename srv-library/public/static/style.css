@@ -328,5 +328,5 @@ span.seat_type_7 {
 }
 
 .bacground-gray {
-    background: grey;
+    background: grey !important;
 }
