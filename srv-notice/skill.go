@@ -11,34 +11,34 @@ import (
 var (
 	baseReplies = []skill.QuickReply{
 		{
-			Label:       "공지",
-			Action:      "message",
-			MessageText: "공지사항",
+			Label:   "공지",
+			Action:  "block",
+			BlockId: "5f04048201c9fc00013d56b3",
 		},
 		{
-			Label:       "일반",
-			Action:      "message",
-			MessageText: "일반공지",
+			Label:   "일반",
+			Action:  "block",
+			BlockId: "5f040e213e869f00019d01f6",
 		},
 		{
-			Label:       "학사",
-			Action:      "message",
-			MessageText: "학사공지",
+			Label:   "학사",
+			Action:  "block",
+			BlockId: "5f040fbee249a600012e4b5e",
 		},
 		{
-			Label:       "장학",
-			Action:      "message",
-			MessageText: "장학공지",
+			Label:   "장학",
+			Action:  "block",
+			BlockId: "5f040fca3210ac0001403e16",
 		},
 		{
-			Label:       "등록",
-			Action:      "message",
-			MessageText: "등록공지",
+			Label:   "등록",
+			Action:  "block",
+			BlockId: "5f041007e249a600012e4b74",
 		},
 		{
-			Label:       "학술",
-			Action:      "message",
-			MessageText: "학술공지",
+			Label:   "학술",
+			Action:  "block",
+			BlockId: "5f087b2627fbed0001a6e29c",
 		},
 	}
 

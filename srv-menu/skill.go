@@ -12,24 +12,24 @@ import (
 var (
 	baseReplies = []skill.QuickReply{
 		{
-			Label:       "민/학",
-			Action:      "message",
-			MessageText: "민/학",
+			Label:   "민/학",
+			Action:  "block",
+			BlockId: "5e54f02a92690d0001ea1080",
 		},
 		{
-			Label:       "민/교",
-			Action:      "message",
-			MessageText: "민/교",
+			Label:   "민/교",
+			Action:  "block",
+			BlockId: "5e54f076ffa74800018cb13c",
 		},
 		{
-			Label:       "창/학",
-			Action:      "message",
-			MessageText: "창/학",
+			Label:   "창/학",
+			Action:  "block",
+			BlockId: "5e54f1958192ac0001377fc6",
 		},
 		{
-			Label:       "창/교",
-			Action:      "message",
-			MessageText: "창/교",
+			Label:   "창/교",
+			Action:  "block",
+			BlockId: "5e54f19a8192ac0001377fc9",
 		},
 	}
 
