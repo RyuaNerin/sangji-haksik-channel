@@ -7,14 +7,13 @@ import (
 	"net/http"
 	"sangjihaksik/share"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/PuerkitoBio/goquery"
 	skill "github.com/RyuaNerin/go-kakaoskill/v2"
 	"github.com/getsentry/sentry-go"
+	jsoniter "github.com/json-iterator/go"
 )
 
 type stationInfo struct {
@@ -46,23 +45,23 @@ var (
 	stationList = map[int]*stationInfo{
 		우산초교: {
 			StationName: "우산초교 (정문)",
-			RequestBody: []byte("station_id=251061041"),
+			RequestBody: []byte("stationId=251061041"),
 		},
 		강원정비기술학원: {
 			StationName: "강원정비기술학원 (상지마트)",
-			RequestBody: []byte("station_id=251061013"),
+			RequestBody: []byte("stationId=251061013"),
 		},
 		터미널앞: {
 			StationName: "터미널 앞",
-			RequestBody: []byte("station_id=251060037"),
+			RequestBody: []byte("stationId=251060037"),
 		},
 		터미널맞은편: {
 			StationName: "터미널 길건너",
-			RequestBody: []byte("station_id=251060036"),
+			RequestBody: []byte("stationId=251060036"),
 		},
 		원주역: {
 			StationName: "원주역 (CU 앞)",
-			RequestBody: []byte("station_id=251058010"),
+			RequestBody: []byte("stationId=251058010"),
 		},
 	}
 
@@ -163,7 +162,7 @@ func (si *stationInfo) update(w *sync.WaitGroup) {
 
 	si.arrivalList = si.arrivalList[:0]
 
-	req, _ := http.NewRequest("POST", "http://its.wonju.go.kr:8090/map/AjaxRouteListByStop.do", bytes.NewReader(si.RequestBody))
+	req, _ := http.NewRequest("POST", "http://its.wonju.go.kr/bus/busStaionAjax.do", bytes.NewReader(si.RequestBody))
 	req.Header = http.Header{
 		"User-Agent":   {"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36"},
 		"Content-Type": {"application/x-www-form-urlencoded; charset=UTF-8"},
@@ -175,40 +174,35 @@ func (si *stationInfo) update(w *sync.WaitGroup) {
 		return
 	}
 
-	doc, err := goquery.NewDocumentFromReader(res.Body)
+	var busStationAjax struct {
+		Bus []struct {
+			PredictTm     int    `json:"predictTm,omitempty"`
+			ProvideType   int    `json:"provideType,omitempty"`
+			RemainStation int    `json:"remainStation,omitempty"`
+			RouteNm       string `json:"routeNm"`
+		} `json:"bus"`
+	}
+
+	err = jsoniter.NewDecoder(res.Body).Decode(&busStationAjax)
 	if err != nil && err != io.EOF {
 		sentry.CaptureException(err)
 		return
 	}
 
-	doc.Find("div.nw_table1 tr[id]").Each(
-		func(index int, s *goquery.Selection) {
-			busName := strings.TrimSpace(s.Find("th p").First().Text())
-			if busName == "" {
-				return
-			}
+	for _, bus := range busStationAjax.Bus {
+		if bus.ProvideType != 1 {
+			continue
+		}
 
-			ss := s.Find("td font")
-			remainStation, err := strconv.Atoi(strings.TrimSpace(ss.Eq(0).Text()))
-			if err != nil {
-				return
-			}
-
-			remainMinutes, err := strconv.Atoi(strings.TrimSpace(ss.Eq(1).Text()))
-			if err != nil {
-				return
-			}
-
-			si.arrivalList = append(
-				si.arrivalList,
-				arrivalInfo{
-					number:         busName,
-					remainMinutes:  remainMinutes,
-					remainStations: remainStation,
-				},
-			)
-		},
-	)
+		si.arrivalList = append(
+			si.arrivalList,
+			arrivalInfo{
+				number:         bus.RouteNm,
+				remainMinutes:  bus.PredictTm,
+				remainStations: bus.RemainStation,
+			},
+		)
+	}
 }
 
 func (ri *routeInfo) update(w *sync.WaitGroup) {
