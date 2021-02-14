@@ -55,39 +55,39 @@ type noticeArticleInfo struct {
 var (
 	notice = map[int]*noticeInfo{
 		공지사항: {
-			Name: "공지사항 (최근 4주, 최대 5개)",
+			Name: "공지사항",
 		},
 		일반공지: {
 			Type:    noticeTypeWeb,
-			Name:    "일반공지 (최근 4주, 최대 5개)",
+			Name:    "일반공지",
 			Url:     "https://www.sangji.ac.kr/prog/bbsArticle/BBSMSTR_000000000031/list.do",
 			UrlView: "https://www.sangji.ac.kr/prog/bbsArticle/BBSMSTR_000000000031/view.do?nttId=%s",
 			Prefix:  "[일반] ",
 		},
 		학사공지: {
 			Type:    noticeTypeWeb,
-			Name:    "학사공지 (최근 4주, 최대 5개)",
+			Name:    "학사공지",
 			Url:     "https://www.sangji.ac.kr/prog/bbsArticle/BBSMSTR_000000000041/list.do",
 			UrlView: "https://www.sangji.ac.kr/prog/bbsArticle/BBSMSTR_000000000041/view.do?nttId=%s",
 			Prefix:  "[학사] ",
 		},
 		장학공지: {
 			Type:    noticeTypeWeb,
-			Name:    "장학공지 (최근 4주, 최대 5개)",
+			Name:    "장학공지",
 			Url:     "https://www.sangji.ac.kr/prog/bbsArticle/BBSMSTR_000000000042/list.do",
 			UrlView: "https://www.sangji.ac.kr/prog/bbsArticle/BBSMSTR_000000000042/view.do?nttId=%s",
 			Prefix:  "[장학] ",
 		},
 		등록공지: {
 			Type:    noticeTypeWeb,
-			Name:    "등록공지 (최근 4주, 최대 5개)",
+			Name:    "등록공지",
 			Url:     "https://www.sangji.ac.kr/prog/bbsArticle/BBSMSTR_000000000052/list.do",
 			UrlView: "https://www.sangji.ac.kr/prog/bbsArticle/BBSMSTR_000000000052/view.do?nttId=%s",
 			Prefix:  "[등록] ",
 		},
 		학술공지: {
 			Type:    noticeTypeLibrary,
-			Name:    "학술공지 (최근 4주, 최대 5개)",
+			Name:    "학술공지",
 			Url:     "https://library.sangji.ac.kr/sb/default_notice_list.mir",
 			UrlView: "https://library.sangji.ac.kr/sb/default_notice_view.mir?sb_no=%s",
 			Prefix:  "[학술] ",
