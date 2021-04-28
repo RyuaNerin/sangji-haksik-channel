@@ -25,8 +25,8 @@ func init() {
 
 func Login(client *http.Client, id string, pw string) bool {
 	// VisitPage
-	// https://www.sangji.ac.kr/prog/login/actionSangjiLogin.do
-	req, _ := http.NewRequest("GET", "https://www.sangji.ac.kr/prog/login/actionSangjiLogin.do", nil)
+	// https://www.sangji.ac.kr/kor/login.do
+	req, _ := http.NewRequest("GET", "https://www.sangji.ac.kr/kor/login.do", nil)
 	req.Header = http.Header{
 		"User-Agent": []string{UserAgent},
 	}
