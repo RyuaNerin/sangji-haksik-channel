@@ -3,7 +3,7 @@ module sangjihaksik
 go 1.14
 
 require (
-	github.com/PuerkitoBio/goquery v1.5.1
+	github.com/PuerkitoBio/goquery v1.7.0
 	github.com/RyuaNerin/go-kakaoskill/v2 v2.0.2
 	github.com/fogleman/gg v1.3.0
 	github.com/getsentry/sentry-go v0.6.1
