@@ -141,19 +141,18 @@ var (
 			},
 		}).ParseGlob("srv-library/public/*.tmpl.htm"))
 
-	client = http.Client{
-		Transport: http.DefaultTransport,
-		Jar: func() *cookiejar.Jar {
-			j, _ := cookiejar.New(nil)
-			return j
-		}(),
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
+	httpClient *http.Client
 )
 
 func init() {
+	httpClient = share.NewHttpClient()
+	httpClient.Jar = func() *cookiejar.Jar {
+		j, _ := cookiejar.New(nil)
+		return j
+	}()
+	httpClient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
 	share.DoUpdate(share.Config.UpdatePeriodLibrary, update)
 }
 
@@ -186,7 +185,7 @@ func updateTotal(now time.Time) bool {
 		"User-Agent": []string{share.UserAgent},
 	}
 
-	res, err := client.Do(req)
+	res, err := httpClient.Do(req)
 	if err != nil {
 		sentry.CaptureException(err)
 		return false
@@ -301,18 +300,19 @@ func updateTotalIsLogined() bool {
 		"User-Agent": []string{share.UserAgent},
 	}
 
-	res, err := client.Do(req)
+	res, err := httpClient.Do(req)
 	if err != nil {
 		sentry.CaptureException(err)
 		return false
 	}
-	res.Body.Close()
+	defer res.Body.Close()
+	io.Copy(io.Discard, res.Body)
 
 	return strings.Contains(res.Header.Get("Location"), "reading_reading_list")
 }
 
 func updateTotalLogin() bool {
-	if !share.Login(&client, share.Config.Id, share.Config.Pw) {
+	if !share.Login(httpClient, share.Config.Id, share.Config.Pw) {
 		return false
 	}
 
@@ -323,12 +323,13 @@ func updateTotalLogin() bool {
 		"User-Agent": []string{share.UserAgent},
 	}
 
-	res, err := client.Do(req)
+	res, err := httpClient.Do(req)
 	if err != nil {
 		sentry.CaptureException(err)
 		return false
 	}
-	defer res.Body.Close()
+	io.Copy(io.Discard, res.Body)
+	res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
 		return false
@@ -376,11 +377,12 @@ func updateTotalLogin() bool {
 		"Referer":      []string{"https://library.sangji.ac.kr/"},
 	}
 
-	res, err = client.Do(req)
+	res, err = httpClient.Do(req)
 	if err != nil {
 		sentry.CaptureException(err)
 		return false
 	}
+	io.Copy(io.Discard, res.Body)
 	res.Body.Close()
 
 	return true
@@ -400,7 +402,7 @@ func (m *roomData) update(w *sync.WaitGroup, now time.Time) {
 		"Referer":      []string{"https://library.sangji.ac.kr/reading_seat_map.mir"},
 	}
 
-	res, err := client.Do(req)
+	res, err := httpClient.Do(req)
 	if err != nil {
 		sentry.CaptureException(err)
 		return

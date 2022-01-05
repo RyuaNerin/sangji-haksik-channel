@@ -24,10 +24,10 @@ func main() {
 	var l net.Listener
 	var err error
 
-	if _, err := net.ResolveTCPAddr("tcp", share.ListenAddr); err == nil {
+	if _, err = net.ResolveTCPAddr("tcp", share.ListenAddr); err == nil {
 		l, err = net.Listen("tcp", share.ListenAddr)
 	} else {
-		if _, err := os.Stat(share.ListenAddr); !os.IsNotExist(err) {
+		if _, err = os.Stat(share.ListenAddr); !os.IsNotExist(err) {
 			err := os.Remove(share.ListenAddr)
 			if err != nil {
 				panic(err)

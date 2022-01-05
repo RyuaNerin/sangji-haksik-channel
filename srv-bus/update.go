@@ -135,6 +135,8 @@ var (
 			},
 		},
 	}
+
+	httpClient = share.NewHttpClient()
 )
 
 func init() {
@@ -168,11 +170,12 @@ func (si *stationInfo) update(w *sync.WaitGroup) {
 		"Content-Type": {"application/x-www-form-urlencoded; charset=UTF-8"},
 	}
 
-	res, err := http.DefaultClient.Do(req)
+	res, err := httpClient.Do(req)
 	if err != nil {
 		sentry.CaptureException(err)
 		return
 	}
+	defer res.Body.Close()
 
 	var busStationAjax struct {
 		Bus []struct {

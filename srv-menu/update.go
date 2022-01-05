@@ -50,6 +50,8 @@ var (
 			Url:  "https://www.sangji.ac.kr/prog/carteGuidance/kor/sub07_10_04/CP/getCalendar.do",
 		},
 	}
+
+	httpClient = share.NewHttpClient()
 )
 
 func init() {
@@ -88,7 +90,7 @@ func (d *data) update(w *sync.WaitGroup, bgnde time.Time, postData []byte) {
 	}
 	req.ContentLength = int64(len(postData))
 
-	res, err := http.DefaultClient.Do(req)
+	res, err := httpClient.Do(req)
 	if err != nil {
 		sentry.CaptureException(err)
 		return
@@ -142,7 +144,7 @@ func (d *data) update(w *sync.WaitGroup, bgnde time.Time, postData []byte) {
 		case "C": // 저녁
 			index = 2
 		default:
-			sentry.CaptureException(fmt.Errorf("Unexpected Value\n%+v", responseJson))
+			sentry.CaptureException(fmt.Errorf("unexpected value\n%+v", responseJson))
 			return
 		}
 

@@ -93,6 +93,8 @@ var (
 			Prefix:  "[학술] ",
 		},
 	}
+
+	httpClient = share.NewHttpClient()
 )
 
 func init() {
@@ -189,7 +191,7 @@ func (n *noticeInfo) update(w *sync.WaitGroup, total bool) {
 		req.Header = http.Header{
 			"User-Agent": []string{share.UserAgent},
 		}
-		res, err := http.DefaultClient.Do(req)
+		res, err := httpClient.Do(req)
 		if err != nil {
 			sentry.CaptureException(err)
 			return

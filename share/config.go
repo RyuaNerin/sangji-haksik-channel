@@ -48,7 +48,7 @@ var Config = func() (r struct {
 
 				*((*time.Duration)(ptr)) = vd
 			default:
-				panic(errors.New("Type Error"))
+				panic(errors.New("type error"))
 			}
 		},
 	)

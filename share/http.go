@@ -3,6 +3,7 @@ package share
 import (
 	"bytes"
 	"errors"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -12,15 +13,32 @@ import (
 	"github.com/getsentry/sentry-go"
 )
 
-func init() {
-	if htp, ok := http.DefaultTransport.(*http.Transport); ok {
-		if tcpProxy, err := net.DialTimeout("tcp", Config.Fiddler, time.Second); err == nil {
-			tcpProxy.Close()
-
-			u, _ := url.Parse("http://" + Config.Fiddler)
-			htp.Proxy = http.ProxyURL(u)
-		}
+func NewHttpClient() *http.Client {
+	t := &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 3 * time.Second,
 	}
+	c := &http.Client{
+		Timeout:   30 * time.Second,
+		Transport: t,
+	}
+
+	if tcpProxy, err := net.DialTimeout("tcp", Config.Fiddler, time.Second); err == nil {
+		tcpProxy.Close()
+
+		u, _ := url.Parse("http://" + Config.Fiddler)
+		t.Proxy = http.ProxyURL(u)
+	}
+
+	return c
 }
 
 func Login(client *http.Client, id string, pw string) bool {
@@ -35,6 +53,7 @@ func Login(client *http.Client, id string, pw string) bool {
 		sentry.CaptureException(err)
 		return false
 	}
+	io.Copy(io.Discard, res.Body)
 	res.Body.Close()
 
 	// Login
@@ -58,6 +77,7 @@ func Login(client *http.Client, id string, pw string) bool {
 		sentry.CaptureException(err)
 		return false
 	}
+	io.Copy(io.Discard, res.Body)
 	res.Body.Close()
 
 	loc, err := res.Location()
