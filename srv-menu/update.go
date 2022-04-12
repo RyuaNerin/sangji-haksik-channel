@@ -7,6 +7,7 @@ import (
 	"html"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -21,14 +22,9 @@ type data struct {
 	Name string
 	Url  string
 
-	// 월 ~ 금
-	menu [5]share.SkillData
-
-	// 일일 시간표 텍스트 생성에 사용될 버퍼
-	menuStringBuffer bytes.Buffer
-
-	// 메뉴 업데이트 확인용
-	hash uint64
+	menu [5]share.SkillData // 월 ~ 금
+	buf  strings.Builder    // 일일 시간표 텍스트 생성에 사용될 버퍼
+	hash uint64             // 메뉴 API 호출 결과가 업데이트 되었는지 확인하는 용도.
 }
 
 var (
@@ -92,6 +88,7 @@ func (d *data) update(w *sync.WaitGroup, bgnde time.Time, postData []byte) {
 
 	res, err := httpClient.Do(req)
 	if err != nil {
+		d.updateErr(bgnde)
 		sentry.CaptureException(err)
 		return
 	}
@@ -114,6 +111,7 @@ func (d *data) update(w *sync.WaitGroup, bgnde time.Time, postData []byte) {
 
 	err = jsoniter.NewDecoder(io.TeeReader(res.Body, h)).Decode(&responseJson)
 	if err != nil && err != io.EOF {
+		d.updateErr(bgnde)
 		sentry.CaptureException(err)
 		return
 	}
@@ -125,150 +123,87 @@ func (d *data) update(w *sync.WaitGroup, bgnde time.Time, postData []byte) {
 	d.hash = hash
 
 	// 아/점/저
-	var menu = make(
-		[]struct {
-			time string
-			menu [5]string
-		},
-		3)
-
-	var jsonItemModDate [3]string
+	type menu struct {
+		time string
+		menu [5]string
+	}
+	var (
+		menuMorning menu
+		menuLunch   menu
+		menuDiner   menu
+	)
 
 	for _, item := range responseJson.Item {
-		index := 0
+		var m *menu
 		switch item.Type {
 		case "A": // 아침
-			index = 0
+			m = &menuMorning
 		case "B": // 점심
-			index = 1
+			m = &menuLunch
 		case "C": // 저녁
-			index = 2
+			m = &menuDiner
 		default:
 			sentry.CaptureException(fmt.Errorf("unexpected value\n%+v", responseJson))
 			return
 		}
 
-		menu[index].time = item.Time
-		menu[index].menu = [5]string{item.WeekDay0, item.WeekDay1, item.WeekDay2, item.WeekDay3, item.WeekDay4}
-
-		jsonItemModDate[index] = item.ModDate
+		m.time = item.Time
+		m.menu = [5]string{item.WeekDay0, item.WeekDay1, item.WeekDay2, item.WeekDay3, item.WeekDay4}
 	}
 
-	sb := &d.menuStringBuffer
+	tmplData := tmplData{
+		Where:       d.Name,
+		MorningTime: menuMorning.time,
+		LunchTime:   menuLunch.time,
+		DinerTime:   menuDiner.time,
+	}
 
-	for i := 0; i < 5; i++ {
-		menu[0].menu[i] = html.UnescapeString(menu[0].menu[i])
-		menu[1].menu[i] = html.UnescapeString(menu[1].menu[i])
-		menu[2].menu[i] = html.UnescapeString(menu[2].menu[i])
+	for weekday := 0; weekday < 5; weekday++ {
+		dt := bgnde.Add(time.Duration(weekday) * 24 * time.Hour)
+		tmplData.Date = share.TimeFormatKr.Replace(dt.Format("2006년 1월 2일 Mon"))
+		tmplData.MorningMenu = html.UnescapeString(menuMorning.menu[weekday])
+		tmplData.LunchMenu = html.UnescapeString(menuLunch.menu[weekday])
+		tmplData.DinerMenu = html.UnescapeString(menuDiner.menu[weekday])
 
-		/**
-		2020년 2월 2일 토요일
-		민주관 학생식당
-
-		----------------------
-		아침 (09:00 ~ 10:00)
-		북어해장국
-		공기밥
-		깍두기
-		----------------------
-		점심 (11:00 ~ 14:00)
-		메뉴없음
-		----------------------
-		저녁 (17:00 ~ 18:30)
-		일품:돈가스카레덮밥/쥬시쿨
-		백반:돈육바베큐볶음
-		미역국
-		계란찜
-		파래김자반
-		*/
-		sb.Reset()
-
-		dt := bgnde.Add(time.Duration(i) * 24 * time.Hour)
-		fmt.Fprintln(sb, share.TimeFormatKr.Replace(dt.Format("2006년 1월 2일 Mon")))
-		fmt.Fprintln(sb, d.Name)
-		fmt.Fprintln(sb)
-
-		// 메뉴 없음
-		if len(menu[0].menu[i]) == 0 && len(menu[1].menu[i]) == 0 && len(menu[2].menu[i]) == 0 {
-			fmt.Fprint(sb, "메뉴 없음")
-		} else {
-			fmt.Fprintln(sb, "---------------------")
-
-			if len(menu[0].menu[i]) > 0 {
-				fmt.Fprintf(sb, "아침 (%s)", menu[0].time)
-				fmt.Fprintln(sb)
-				fmt.Fprintln(sb, menu[0].menu[i])
-			} else {
-				fmt.Fprintln(sb, "아침")
-				fmt.Fprintln(sb, "메뉴 없음")
-			}
-
-			fmt.Fprintln(sb, "---------------------")
-
-			if len(menu[1].menu[i]) > 0 {
-				fmt.Fprintf(sb, "점심 (%s)", menu[1].time)
-				fmt.Fprintln(sb)
-				fmt.Fprintln(sb, menu[1].menu[i])
-			} else {
-				fmt.Fprintln(sb, "점심")
-				fmt.Fprintln(sb, "메뉴 없음")
-			}
-
-			fmt.Fprintln(sb, "---------------------")
-
-			if len(menu[2].menu[i]) > 0 {
-				fmt.Fprintf(sb, "저녁 (%s)", menu[2].time)
-				fmt.Fprintln(sb)
-				fmt.Fprint(sb, menu[2].menu[i])
-			} else {
-				fmt.Fprintln(sb, "저녁")
-				fmt.Fprint(sb, "메뉴 없음")
-			}
-		}
-
-		s := skill.SkillResponse{
-			Version: "2.0",
-			Template: skill.SkillTemplate{
-				Outputs: []skill.Component{
-					{
-						SimpleText: &skill.SimpleText{
-							Text: share.ToString(sb.Bytes()),
-						},
-					},
-				},
-				QuickReplies: baseReplies,
-			},
-		}
-
-		d.menu[i].Update(sb.Bytes(), &s)
+		d.updateMenu(weekday, &tmplData)
 	}
 }
 
 func (d *data) updateErr(bgnde time.Time) {
-	sb := &d.menuStringBuffer
+
+	tmplData := tmplData{
+		Where: d.Name,
+		Error: true,
+	}
+
+	for weekday := 0; weekday < 5; weekday++ {
+		dt := bgnde.Add(time.Duration(weekday) * 24 * time.Hour)
+		tmplData.Date = share.TimeFormatKr.Replace(dt.Format("2006년 1월 2일 Mon"))
+
+		d.updateMenu(weekday, &tmplData)
+	}
+}
+
+func (d *data) updateMenu(idx int, tmplData *tmplData) {
+	sb := &d.buf
 	sb.Reset()
+	tmpl.Execute(sb, tmplData)
 
-	for i := 0; i < 5; i++ {
-		dt := bgnde.Add(time.Duration(i) * 24 * time.Hour)
-		fmt.Fprintln(sb, share.TimeFormatKr.Replace(dt.Format("2006년 1월 2일 Mon")))
-		fmt.Fprintln(sb, d.Name)
-		fmt.Fprintln(sb)
-		fmt.Fprintln(sb, "정보 조회 실패\n문의 : admin@ryuar.in")
+	str := strings.TrimSpace(sb.String())
 
-		s := skill.SkillResponse{
-			Version: "2.0",
-			Template: skill.SkillTemplate{
-				Outputs: []skill.Component{
-					{
-						SimpleText: &skill.SimpleText{
-							Text: share.ToString(sb.Bytes()),
-						},
+	s := skill.SkillResponse{
+		Version: "2.0",
+		Template: skill.SkillTemplate{
+			Outputs: []skill.Component{
+				{
+					SimpleText: &skill.SimpleText{
+						Text: str,
 					},
 				},
-				QuickReplies: baseReplies,
 			},
-		}
-
-		d.menu[i].Update(sb.Bytes(), &s)
+			QuickReplies: baseReplies,
+		},
 	}
+
+	d.menu[idx].Update(share.ToBytes(str), &s)
 }
