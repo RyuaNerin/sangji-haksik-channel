@@ -164,10 +164,11 @@ func (si *stationInfo) update(w *sync.WaitGroup) {
 
 	si.arrivalList = si.arrivalList[:0]
 
-	req, _ := http.NewRequest("POST", "http://its.wonju.go.kr/bus/busStaionAjax.do", bytes.NewReader(si.RequestBody))
+	req, _ := http.NewRequest(http.MethodPost, "http://its.wonju.go.kr/bus/busStaionAjax.do", bytes.NewReader(si.RequestBody))
 	req.Header = http.Header{
 		"User-Agent":   {"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36"},
 		"Content-Type": {"application/x-www-form-urlencoded; charset=UTF-8"},
+		"Origin":       {"http://its.wonju.go.kr"},
 	}
 
 	res, err := httpClient.Do(req)
