@@ -243,3 +243,32 @@ func (d *data) update(w *sync.WaitGroup, bgnde time.Time, postData []byte) {
 		d.menu[i].Update(sb.Bytes(), &s)
 	}
 }
+
+func (d *data) updateErr(bgnde time.Time) {
+	sb := &d.menuStringBuffer
+	sb.Reset()
+
+	for i := 0; i < 5; i++ {
+		dt := bgnde.Add(time.Duration(i) * 24 * time.Hour)
+		fmt.Fprintln(sb, share.TimeFormatKr.Replace(dt.Format("2006년 1월 2일 Mon")))
+		fmt.Fprintln(sb, d.Name)
+		fmt.Fprintln(sb)
+		fmt.Fprintln(sb, "정보 조회 실패\n문의 : admin@ryuar.in")
+
+		s := skill.SkillResponse{
+			Version: "2.0",
+			Template: skill.SkillTemplate{
+				Outputs: []skill.Component{
+					{
+						SimpleText: &skill.SimpleText{
+							Text: share.ToString(sb.Bytes()),
+						},
+					},
+				},
+				QuickReplies: baseReplies,
+			},
+		}
+
+		d.menu[i].Update(sb.Bytes(), &s)
+	}
+}

@@ -21,6 +21,7 @@ type stationInfo struct {
 	RequestBody []byte // api 호출용
 
 	arrivalList []arrivalInfo
+	updateError bool
 }
 type arrivalInfo struct {
 	number         string
@@ -190,8 +191,10 @@ func (si *stationInfo) update(w *sync.WaitGroup) {
 	err = jsoniter.NewDecoder(res.Body).Decode(&busStationAjax)
 	if err != nil && err != io.EOF {
 		sentry.CaptureException(err)
+		si.updateError = true
 		return
 	}
+	si.updateError = false
 
 	for _, bus := range busStationAjax.Bus {
 		if bus.ProvideType != 1 {
@@ -252,6 +255,11 @@ func (ri *routeInfo) update(w *sync.WaitGroup) {
 
 	for sk, busList := range ri.StationList {
 		si := stationList[sk]
+		if si.updateError {
+			fmt.Fprintf(&ri.bodyBuffer, "\n- %s\n정보 조회 오류\n", si.StationName)
+			bodyWritten = true
+			continue
+		}
 		if si.arrivalList == nil {
 			continue
 		}
