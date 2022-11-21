@@ -13,7 +13,6 @@ import (
 	"sangjihaksik/share"
 
 	skill "github.com/RyuaNerin/go-kakaoskill/v2"
-	"github.com/getsentry/sentry-go"
 	jsoniter "github.com/json-iterator/go"
 )
 
@@ -175,7 +174,6 @@ func (si *stationInfo) update(w *sync.WaitGroup) {
 
 	res, err := httpClient.Do(req)
 	if err != nil {
-		sentry.CaptureException(err)
 		return
 	}
 	defer res.Body.Close()
@@ -191,7 +189,6 @@ func (si *stationInfo) update(w *sync.WaitGroup) {
 
 	err = jsoniter.NewDecoder(res.Body).Decode(&busStationAjax)
 	if err != nil && err != io.EOF {
-		sentry.CaptureException(err)
 		si.updateError = true
 		return
 	}
