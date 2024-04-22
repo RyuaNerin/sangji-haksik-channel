@@ -12,23 +12,23 @@ import (
 
 var (
 	baseReplies = []skill.QuickReply{
-		민주학생: {
-			Label:   "민/학",
+		{
+			Label:   "민주",
 			Action:  "block",
 			BlockId: "5e54f02a92690d0001ea1080",
 		},
-		행복기숙: {
-			Label:   "행/복",
-			Action:  "block",
-			BlockId: "5e54f076ffa74800018cb13c",
-		},
-		창조학생: {
-			Label:   "창/학",
+		{
+			Label:   "창조",
 			Action:  "block",
 			BlockId: "5e54f1958192ac0001377fc6",
 		},
-		창조교직: {
-			Label:   "창/교",
+		{
+			Label:   "행긱",
+			Action:  "block",
+			BlockId: "5e54f076ffa74800018cb13c",
+		},
+		{
+			Label:   "교직",
 			Action:  "block",
 			BlockId: "5e54f19a8192ac0001377fc9",
 		},
