@@ -20,7 +20,8 @@ var Config = func() (r struct {
 	UpdatePeriodLibrary time.Duration `json:"update-period-library"`
 	UpdatePeriodBus     time.Duration `json:"update-period-bus"`
 	UpdatePeriodNotice  time.Duration `json:"update-period-notice"`
-}) {
+},
+) {
 	fs, err := os.Open("config.json")
 	if err != nil {
 		panic(err)
