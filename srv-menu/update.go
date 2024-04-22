@@ -33,9 +33,9 @@ var (
 			Name: "민주관 학생식당",
 			Url:  "https://www.sangji.ac.kr/prog/carteGuidance/kor/sub07_10_01/DS/getCalendar.do",
 		},
-		민주교직: {
+		행복기숙: {
 			Name: "민주관 교직원식당",
-			Url:  "https://www.sangji.ac.kr/prog/carteGuidance/kor/sub07_10_02/DP/getCalendar.do",
+			Url:  "https://www.sangji.ac.kr/prog/carteGuidance/kor/sub07_10_05/DP/getCalendar.do",
 		},
 		창조학생: {
 			Name: "창조관 학생식당",
@@ -170,7 +170,6 @@ func (d *data) update(w *sync.WaitGroup, bgnde time.Time, postData []byte) {
 }
 
 func (d *data) updateErr(bgnde time.Time) {
-
 	tmplData := tmplData{
 		Where: d.Name,
 		Error: true,

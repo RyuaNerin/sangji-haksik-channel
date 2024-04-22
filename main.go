@@ -10,8 +10,6 @@ import (
 
 	"sangjihaksik/share"
 	_ "sangjihaksik/srv-bus"
-
-	//_ "sangjihaksik/srv-library"
 	_ "sangjihaksik/srv-menu"
 	_ "sangjihaksik/srv-notice"
 	_ "sangjihaksik/static"
@@ -38,7 +36,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		err = os.Chmod(share.ListenAddr, 0777)
+		err = os.Chmod(share.ListenAddr, 0o777)
 	}
 	if err != nil {
 		panic(err)
