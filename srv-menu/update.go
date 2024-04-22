@@ -34,8 +34,8 @@ var (
 			Url:  "https://www.sangji.ac.kr/prog/carteGuidance/kor/sub07_10_01/DS/getCalendar.do",
 		},
 		행복기숙: {
-			Name: "민주관 교직원식당",
-			Url:  "https://www.sangji.ac.kr/prog/carteGuidance/kor/sub07_10_05/DP/getCalendar.do",
+			Name: "행복기숙사 ",
+			Url:  "https://www.sangji.ac.kr/prog/carteGuidance/kor/sub07_10_05/HD/getCalendar.do",
 		},
 		창조학생: {
 			Name: "창조관 학생식당",
