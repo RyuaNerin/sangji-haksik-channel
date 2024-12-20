@@ -2,12 +2,12 @@ package share
 
 import (
 	"bytes"
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"sync"
 
 	skill "github.com/RyuaNerin/go-kakaoskill/v2"
-	jsoniter "github.com/json-iterator/go"
 )
 
 type SkillData struct {
@@ -76,7 +76,7 @@ func (sd *SkillData) Update(text []byte, sr *skill.SkillResponse) (err error) {
 	sd.data = nil
 
 	sd.dataBuffer.Reset()
-	jsoniter.NewEncoder(&sd.dataBuffer).Encode(sr)
+	json.NewEncoder(&sd.dataBuffer).Encode(sr)
 
 	sd.textBuffer.Reset()
 	sd.textBuffer.Write(text)

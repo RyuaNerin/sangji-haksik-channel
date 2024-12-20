@@ -2,6 +2,7 @@ package srvmenu
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"hash/fnv"
 	"html"
@@ -15,7 +16,6 @@ import (
 
 	skill "github.com/RyuaNerin/go-kakaoskill/v2"
 	"github.com/getsentry/sentry-go"
-	jsoniter "github.com/json-iterator/go"
 )
 
 type data struct {
@@ -109,7 +109,7 @@ func (d *data) update(w *sync.WaitGroup, bgnde time.Time, postData []byte) {
 
 	h := fnv.New64()
 
-	err = jsoniter.NewDecoder(io.TeeReader(res.Body, h)).Decode(&responseJson)
+	err = json.NewDecoder(io.TeeReader(res.Body, h)).Decode(&responseJson)
 	if err != nil && err != io.EOF {
 		d.updateErr(bgnde)
 		sentry.CaptureException(err)

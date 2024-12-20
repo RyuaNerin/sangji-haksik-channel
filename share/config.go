@@ -1,13 +1,10 @@
 package share
 
 import (
-	"errors"
+	"encoding/json"
 	"io"
 	"os"
 	"time"
-	"unsafe"
-
-	jsoniter "github.com/json-iterator/go"
 )
 
 var Config = func() (r struct {
@@ -28,33 +25,7 @@ var Config = func() (r struct {
 	}
 	defer fs.Close()
 
-	jsoniter.RegisterTypeDecoderFunc(
-		"time.Duration",
-		func(ptr unsafe.Pointer, iter *jsoniter.Iterator) {
-			v := iter.Read()
-
-			switch value := v.(type) {
-			case int:
-				*((*time.Duration)(ptr)) = time.Duration(value) * time.Second
-			case int64:
-				*((*time.Duration)(ptr)) = time.Duration(value) * time.Second
-			case int32:
-				*((*time.Duration)(ptr)) = time.Duration(value) * time.Second
-
-			case string:
-				vd, err := time.ParseDuration(value)
-				if err != nil {
-					panic(err)
-				}
-
-				*((*time.Duration)(ptr)) = vd
-			default:
-				panic(errors.New("type error"))
-			}
-		},
-	)
-
-	err = jsoniter.NewDecoder(fs).Decode(&r)
+	err = json.NewDecoder(fs).Decode(&r)
 	if err != nil && err != io.EOF {
 		panic(err)
 	}

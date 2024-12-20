@@ -2,6 +2,7 @@ package srvbus
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,7 +14,6 @@ import (
 	"sangjihaksik/share"
 
 	skill "github.com/RyuaNerin/go-kakaoskill/v2"
-	jsoniter "github.com/json-iterator/go"
 )
 
 type stationInfo struct {
@@ -187,7 +187,7 @@ func (si *stationInfo) update(w *sync.WaitGroup) {
 		} `json:"bus"`
 	}
 
-	err = jsoniter.NewDecoder(res.Body).Decode(&busStationAjax)
+	err = json.NewDecoder(res.Body).Decode(&busStationAjax)
 	if err != nil && err != io.EOF {
 		si.updateError = true
 		return
