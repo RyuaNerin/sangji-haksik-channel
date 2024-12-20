@@ -141,7 +141,7 @@ var (
 )
 
 func init() {
-	share.DoUpdate(share.Config.UpdatePeriodBus, update)
+	share.DoUpdate(share.Config.UpdatePeriodBus.Value(), update)
 }
 
 func update() {

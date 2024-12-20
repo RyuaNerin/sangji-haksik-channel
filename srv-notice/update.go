@@ -98,7 +98,7 @@ var (
 )
 
 func init() {
-	share.DoUpdate(share.Config.UpdatePeriodNotice, update)
+	share.DoUpdate(share.Config.UpdatePeriodNotice.Value(), update)
 }
 
 func update() {

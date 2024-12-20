@@ -51,7 +51,7 @@ var (
 )
 
 func init() {
-	share.DoUpdate(share.Config.UpdatePeriodMenu, update)
+	share.DoUpdate(share.Config.UpdatePeriodMenu.Value(), update)
 }
 
 func update() {

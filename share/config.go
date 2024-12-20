@@ -13,10 +13,10 @@ var Config = func() (r struct {
 
 	Fiddler string `json:"fiddler"`
 
-	UpdatePeriodMenu    time.Duration `json:"update-period-menu"`
-	UpdatePeriodLibrary time.Duration `json:"update-period-library"`
-	UpdatePeriodBus     time.Duration `json:"update-period-bus"`
-	UpdatePeriodNotice  time.Duration `json:"update-period-notice"`
+	UpdatePeriodMenu    Duration `json:"update-period-menu"`
+	UpdatePeriodLibrary Duration `json:"update-period-library"`
+	UpdatePeriodBus     Duration `json:"update-period-bus"`
+	UpdatePeriodNotice  Duration `json:"update-period-notice"`
 },
 ) {
 	fs, err := os.Open("config.json")
@@ -32,3 +32,25 @@ var Config = func() (r struct {
 
 	return r
 }()
+
+type Duration time.Duration
+
+func (d *Duration) UnmarshalJSON(b []byte) error {
+	var s string
+	err := json.Unmarshal(b, &s)
+	if err != nil {
+		return err
+	}
+
+	t, err := time.ParseDuration(s)
+	if err != nil {
+		return err
+	}
+
+	*d = Duration(t)
+	return nil
+}
+
+func (d Duration) Value() time.Duration {
+	return time.Duration(d)
+}
