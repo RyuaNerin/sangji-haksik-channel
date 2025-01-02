@@ -7,7 +7,7 @@ toolchain go1.23.1
 require (
 	github.com/PuerkitoBio/goquery v1.10.0
 	github.com/RyuaNerin/go-kakaoskill/v2 v2.0.2
-	github.com/getsentry/sentry-go v0.30.0
+	github.com/getsentry/sentry-go v0.31.1
 	golang.org/x/net v0.33.0
 )
 
