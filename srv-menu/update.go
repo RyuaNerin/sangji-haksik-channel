@@ -158,7 +158,7 @@ func (d *data) update(w *sync.WaitGroup, bgnde time.Time, postData []byte) {
 		DinerTime:   menuDiner.time,
 	}
 
-	for weekday := 0; weekday < 5; weekday++ {
+	for weekday := range 5 {
 		dt := bgnde.Add(time.Duration(weekday) * 24 * time.Hour)
 		tmplData.Date = share.TimeFormatKr.Replace(dt.Format("2006년 1월 2일 Mon"))
 		tmplData.MorningMenu = html.UnescapeString(menuMorning.menu[weekday])
@@ -175,7 +175,7 @@ func (d *data) updateErr(bgnde time.Time) {
 		Error: true,
 	}
 
-	for weekday := 0; weekday < 5; weekday++ {
+	for weekday := range 5 {
 		dt := bgnde.Add(time.Duration(weekday) * 24 * time.Hour)
 		tmplData.Date = share.TimeFormatKr.Replace(dt.Format("2006년 1월 2일 Mon"))
 

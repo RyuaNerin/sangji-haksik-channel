@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -291,12 +292,9 @@ func (ri *routeInfo) update(w *sync.WaitGroup) {
 
 			for _, arrival := range ri.busArrivalListTemp {
 				withMemo := false
-				for _, busNumberWithMemo := range ri.MemoBus {
-					if arrival.number == busNumberWithMemo {
-						withMemo = true
-						memoWritten = true
-						break
-					}
+				if slices.Contains(ri.MemoBus, arrival.number) {
+					withMemo = true
+					memoWritten = true
 				}
 
 				if withMemo {
